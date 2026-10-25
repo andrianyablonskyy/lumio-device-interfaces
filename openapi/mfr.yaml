@@ -221,7 +221,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/HwTypePage' }
               examples:
-                page: { value: { items: [{ id: 01928f3e-5a7b-7c00-8d00-0000000000a1, status: approved, images: ['https://cdn.eu.lumio.io/hw/01928f3e/front.png'], review_note: null, created_at: '2026-10-20T08:00:00Z', model_code: P2, name: Smart Plug P2, category: actuator, capabilities: { channels: [{ channel: switch_1, capability: switch, role: actuator }] }, provisioning_methods: [ble, qr], fw_signing_pubkey: eN0vIzHLV6wfvNjg5vkKfi+xzF0D89en3P2CzqjptvQ= }], next_cursor: null } }
+                page: { value: { items: [{ id: 01928f3e-5a7b-7c00-8d00-0000000000a1, status: approved, images: ['https://cdn.eu.lumio.io/hw/01928f3e/front.png'], review_note: null, created_at: '2026-10-20T08:00:00Z', model_code: P2, name: Smart Plug P2, category: actuator, device_type: smart_socket, capabilities: { channels: [{ channel: switch_1, capability: switch, role: actuator }] }, provisioning_methods: [ble, qr], fw_signing_pubkey: eN0vIzHLV6wfvNjg5vkKfi+xzF0D89en3P2CzqjptvQ= }], next_cursor: null } }
     post:
       tags: [Hardware types]
       operationId: createHwType
@@ -236,6 +236,7 @@ paths:
             schema: { $ref: '#/components/schemas/HwTypeReq' }
             examples:
               plug: { $ref: '#/components/examples/HwTypeReq' }
+              relay: { $ref: '#/components/examples/HwTypeReqRelay' }
       responses:
         '201':
           description: Draft created
@@ -969,6 +970,11 @@ components:
             icon: { type: string }
             primary_channel: { $ref: '../schemas/common.json#/$defs/ChannelName' }
             card: { enum: [toggle, sensor, dimmer, thermostat] }
+        device_type:
+          description: >-
+            What kind of product this is (docs/11-device-types.md). The channels must fit the type: the registration is
+            refused with validation_failed otherwise. Omitted: custom (no channel rules).
+          enum: [power_switch, relay, meter, valve, smart_socket, light_bulb, control_panel, dimmer, climate_sensor, custom]
         setup_instructions:
           description: Pairing instructions shown in the app, by language (en, uk).
           type: object
@@ -987,9 +993,10 @@ components:
         fw_signing_pubkey: { $ref: '../schemas/common.json#/$defs/Base64' }
         ui_hints: { $ref: '#/components/schemas/HwTypeReq/properties/ui_hints' }
         setup_instructions: { $ref: '#/components/schemas/HwTypeReq/properties/setup_instructions' }
+        device_type: { $ref: '#/components/schemas/HwTypeReq/properties/device_type' }
     HwType:
       type: object
-      required: [id, status, images, review_note, created_at, model_code, name, category, capabilities, provisioning_methods, fw_signing_pubkey]
+      required: [id, status, images, review_note, created_at, model_code, name, category, device_type, capabilities, provisioning_methods, fw_signing_pubkey]
       additionalProperties: false
       properties:
         id: { $ref: '../schemas/common.json#/$defs/Uuid' }
@@ -1000,6 +1007,7 @@ components:
         model_code: { type: string }
         name: { type: string }
         category: { enum: [sensor, actuator, mixed, gateway] }
+        device_type: { $ref: '#/components/schemas/HwTypeReq/properties/device_type' }
         capabilities: { $ref: '../schemas/capabilities.json' }
         provisioning_methods: { type: array, items: { enum: [ble, wifi_ap, qr, gateway] } }
         fw_signing_pubkey: { $ref: '../schemas/common.json#/$defs/Base64' }
@@ -1210,6 +1218,7 @@ components:
         model_code: P2
         name: Smart Plug P2
         category: actuator
+        device_type: smart_socket
         capabilities:
           channels:
             - { channel: switch_1, capability: switch, role: actuator }
@@ -1219,6 +1228,23 @@ components:
         fw_signing_pubkey: eN0vIzHLV6wfvNjg5vkKfi+xzF0D89en3P2CzqjptvQ=
         ui_hints: { icon: plug, primary_channel: switch_1, card: toggle }
         setup_instructions: { en: 'Plug it in and hold the button for 5 seconds until the light blinks blue.', uk: 'Увімкніть у розетку й утримуйте кнопку 5 секунд, доки індикатор не заблимає синім.' }
+    HwTypeReqRelay:
+      value:
+        model_code: R4
+        name: Relay Module R4
+        category: actuator
+        device_type: relay
+        capabilities:
+          channels:
+            - { channel: switch_1, capability: switch, role: actuator }
+            - { channel: switch_2, capability: switch, role: actuator }
+            - { channel: switch_3, capability: switch, role: actuator }
+            - { channel: switch_4, capability: switch, role: actuator }
+            - { channel: power, capability: power_meter, role: sensor, unit: W, report_interval_s: 60 }
+        provisioning_methods: [ble, wifi_ap, qr]
+        fw_signing_pubkey: eN0vIzHLV6wfvNjg5vkKfi+xzF0D89en3P2CzqjptvQ=
+        ui_hints: { icon: relay, primary_channel: switch_1, card: toggle }
+        setup_instructions: { en: 'Press and hold the button on the module for 5 seconds until the LED blinks fast.', uk: 'Натисніть і утримуйте кнопку на модулі 5 секунд, доки індикатор не почне швидко блимати.' }
     HwType:
       value:
         id: 01928f3e-5a7b-7c00-8d00-0000000000a1
@@ -1229,6 +1255,7 @@ components:
         model_code: P2
         name: Smart Plug P2
         category: actuator
+        device_type: smart_socket
         capabilities:
           channels:
             - { channel: switch_1, capability: switch, role: actuator }

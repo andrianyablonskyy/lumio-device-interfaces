@@ -74,7 +74,7 @@ const invalid: [string, string, (v: Record<string, unknown>) => unknown][] = [
   ['analytics with a text metric', 'mqtt/analytics.json', (v) => ({ ...v, metrics: { x_mode: 'eco' } })],
   ['analytics with an unknown reset reason', 'mqtt/analytics.json', (v) => ({ ...v, reset_reason: 'cosmic_ray' })],
   ['last will saying online', 'mqtt/lwt.json', () => ({ online: true })],
-  ['capability without x_ prefix', 'capabilities.json', () => ({ channels: [{ channel: 'volts', capability: 'voltage', role: 'sensor' }] })],
+  ['capability without x_ prefix', 'capabilities.json', () => ({ channels: [{ channel: 'volts', capability: 'mains_voltage', role: 'sensor' }] })],
   ['capability with zero step', 'capabilities.json', () => ({
     channels: [{ channel: 'dim', capability: 'dimmer', role: 'actuator', range: { min: 0, max: 1, step: 0 } }]
   })],

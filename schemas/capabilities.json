@@ -11,11 +11,11 @@
   },
   "$defs": {
     "CapabilityKey": {
-      "description": "Catalogue capability. Actuators: switch, dimmer, rgb_light, color_temp, cover, thermostat, valve, lock. Sensors: temperature, humidity, motion, contact, water_leak, smoke, co2, illuminance, power_meter, energy, battery, button.",
+      "description": "Catalogue capability. Actuators: switch, dimmer, rgb_light, color_temp, cover, thermostat, valve, lock. Sensors: temperature, humidity, motion, contact, water_leak, smoke, co2, illuminance, power_meter (W), energy (kWh), battery, button, voltage (V), current (A), volume (m³, water or gas meters).",
       "enum": [
         "switch", "dimmer", "rgb_light", "color_temp", "cover", "thermostat", "valve", "lock",
         "temperature", "humidity", "motion", "contact", "water_leak", "smoke", "co2",
-        "illuminance", "power_meter", "energy", "battery", "button"
+        "illuminance", "power_meter", "energy", "battery", "button", "voltage", "current", "volume"
       ]
     },
     "CustomCapability": {

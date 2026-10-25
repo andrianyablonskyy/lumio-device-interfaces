@@ -9,6 +9,7 @@ the device protocol, pairing, firmware updates, analytics, event notifications a
 | Factory / production line tooling | [docs/09-manufacturer-api.md](docs/09-manufacturer-api.md) (provisioning) |
 | Firmware release pipeline | [docs/07-firmware-updates.md](docs/07-firmware-updates.md) |
 | Fleet monitoring, back-office integration | [docs/10-analytics.md](docs/10-analytics.md), [docs/08-webhooks.md](docs/08-webhooks.md) |
+| A new HW type (channels, device type) | [docs/11-device-types.md](docs/11-device-types.md), [schemas/capabilities.json](schemas/capabilities.json) |
 
 New here? Read [docs/01-overview.md](docs/01-overview.md) first: it walks through the whole integration in order.
 

@@ -2,7 +2,7 @@
 /* eslint-disable */
 
 /**
- * Catalogue capability. Actuators: switch, dimmer, rgb_light, color_temp, cover, thermostat, valve, lock. Sensors: temperature, humidity, motion, contact, water_leak, smoke, co2, illuminance, power_meter, energy, battery, button.
+ * Catalogue capability. Actuators: switch, dimmer, rgb_light, color_temp, cover, thermostat, valve, lock. Sensors: temperature, humidity, motion, contact, water_leak, smoke, co2, illuminance, power_meter (W), energy (kWh), battery, button, voltage (V), current (A), volume (m³, water or gas meters).
  */
 export type CapabilityKey =
   | "switch"
@@ -24,7 +24,10 @@ export type CapabilityKey =
   | "power_meter"
   | "energy"
   | "battery"
-  | "button";
+  | "button"
+  | "voltage"
+  | "current"
+  | "volume";
 
 /**
  * Manufacturer-specific capability; always prefixed with 'x_'. The app shows it as a generic value.

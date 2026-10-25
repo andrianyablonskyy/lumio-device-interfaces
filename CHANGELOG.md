@@ -7,6 +7,9 @@ version (`v` in MQTT payloads) changes only on breaking protocol changes.
 
 First public draft, device protocol v1.
 
+- Device types (`device_type` on HW types) with channel rules per type, and the capabilities `voltage`, `current`,
+  `volume` ([docs/11-device-types.md](docs/11-device-types.md)).
+
 - MQTT device protocol: telemetry, events, reported/desired state, claim, OTA notify/progress, analytics, Last Will
   (AsyncAPI 3.0 + JSON Schema 2020-12).
 - Device identity: certificates from CSR, PSK fallback with time-bound HMAC passwords, QR claim URI.
