@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "did": "acme-P2A1B2C3D4",
+  "model_code": "P2",
+  "fw": "1.4.2",
+  "pubkey": "BCt/xcVi9mEY/OKTUE96LstdCgi/0hdY1iovgSwWNZC4fQe1ANMYMhluBo9xOnzayrluuXrR/0VHgV8oIcxXGCQ=",
+  "claimed": false,
+  "wifi_bands": [
+    "2.4ghz"
+  ]
+}

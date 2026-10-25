@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "ts": 1761210004000,
+  "seq": 45,
+  "boot": "b7Kq2Xp9",
+  "state": {
+    "switch_1": true,
+    "brightness": 60
+  },
+  "ack_version": 17,
+  "fw": "1.4.2",
+  "rssi": -61
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/mqtt/state-reported.json",
+  "title": "ReportedStateMsg",
+  "description": "Topic dev/{mid}/{did}/state/reported, device to cloud, QoS 1, retained. The full current state of every actuator channel; also acknowledges desired state.",
+  "type": "object",
+  "allOf": [{ "$ref": "../common.json#/$defs/Envelope" }],
+  "required": ["state", "fw"],
+  "properties": {
+    "state": {
+      "type": "object",
+      "maxProperties": 64,
+      "propertyNames": { "$ref": "../common.json#/$defs/ChannelName" }
+    },
+    "ack_version": { "type": "integer", "minimum": 0, "description": "Highest desired-state version the device has applied." },
+    "fw": { "$ref": "../common.json#/$defs/Semver", "description": "Running firmware version." },
+    "rssi": { "type": "number", "minimum": -127, "maximum": 0, "description": "Wi-Fi/radio signal strength in dBm." },
+    "battery": { "type": "number", "minimum": 0, "maximum": 100, "description": "Battery level in percent (battery-powered devices)." }
+  },
+  "unevaluatedProperties": false
+}

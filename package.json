@@ -1,0 +1,41 @@
+{
+  "name": "@lumio/device-interfaces",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lumio device integration interfaces: MQTT device protocol, pairing, firmware updates, analytics and the manufacturer API",
+  "type": "module",
+  "main": "src/index.ts",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc",
+    "test": "vitest run",
+    "gen": "tsx scripts/gen-types.ts",
+    "vectors": "tsx scripts/gen-vectors.ts",
+    "verify": "npm run lint && npm run typecheck && npm test",
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@asyncapi/specs": "^6.11.1",
+    "@eslint/js": "^9.39.5",
+    "@seriousme/openapi-schema-validator": "^2.11.0",
+    "@stylistic/eslint-plugin": "^2.13.0",
+    "@types/node": "^20.17.6",
+    "eslint": "^9.39.5",
+    "eslint-plugin-promise": "^7.3.0",
+    "globals": "^15.15.0",
+    "json-schema-to-typescript": "^15.0.4",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^2.1.5"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/provisioning/claim-uri.json",
+  "title": "ClaimUri",
+  "description": "QR code content printed on the device or box: lumio://claim?did=<did>&cs=<claim secret>. The claim secret is 26 base32 characters (128 bits) returned once by the provisioning API.",
+  "type": "string",
+  "pattern": "^lumio://claim\\?did=[a-z0-9]{3,8}-[A-Za-z0-9]{8,32}&cs=[a-z2-7]{26}$"
+}

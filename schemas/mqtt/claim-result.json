@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/mqtt/claim-result.json",
+  "title": "ClaimResultMsg",
+  "description": "Topic dev/{mid}/{did}/claim/result, cloud to device, QoS 1. Answer to a claim message.",
+  "type": "object",
+  "required": ["v", "ok"],
+  "additionalProperties": false,
+  "properties": {
+    "v": { "$ref": "../common.json#/$defs/ProtocolVersion" },
+    "ok": { "type": "boolean" },
+    "reason": { "enum": ["invalid_token", "expired", "already_owned", "hw_not_approved", "key_suspended"] }
+  },
+  "if": { "properties": { "ok": { "const": false } } },
+  "then": { "required": ["reason"] },
+  "else": { "not": { "required": ["reason"] } }
+}

@@ -1,0 +1,8 @@
+{
+  "v": 1,
+  "ssid": "Home WiFi",
+  "password": "correct horse battery staple",
+  "claim_token": "ct_Zm9yIHRlc3RzIG9ubHkgMTIz",
+  "mqtt_host": "mqtt.eu.lumio.io",
+  "tz": "Europe/Kyiv"
+}

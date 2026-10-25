@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/mqtt/telemetry.json",
+  "title": "TelemetryMsg",
+  "description": "Topic dev/{mid}/{did}/telemetry, device to cloud, QoS 0, not retained. Periodic sensor values by channel.",
+  "type": "object",
+  "allOf": [{ "$ref": "../common.json#/$defs/Envelope" }],
+  "required": ["values"],
+  "properties": {
+    "values": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 64,
+      "propertyNames": { "$ref": "../common.json#/$defs/ChannelName" },
+      "additionalProperties": { "type": ["number", "string"] }
+    }
+  },
+  "unevaluatedProperties": false
+}

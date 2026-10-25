@@ -1,0 +1,151 @@
+asyncapi: 3.0.0
+info:
+  title: Lumio device protocol (MQTT)
+  version: 1.0.0
+  description: |
+    The protocol a Lumio-compatible device speaks with the Lumio cloud, described from the device's side
+    (`send` = device publishes, `receive` = device subscribes). Payloads are UTF-8 JSON; schemas are in `schemas/`.
+
+    - Client id = did, certificate CN = did. MQTT 5 preferred, 3.1.1 supported. Keep-alive 60 s, clean start false,
+      session expiry 1 h. Last Will: `dev/{mid}/{did}/lwt`, payload `{"online":false}`, QoS 1.
+    - A device may use only topics under its own prefix `dev/{mid}/{did}/`. A gateway also uses
+      `dev/{mid}/{did}/sub/{sub_did}/<same suffixes>` for its sub-devices.
+    - Every device-to-cloud message carries `v`, `ts`, `seq` (and `boot`); the cloud drops duplicates.
+    - Limits: 16 KiB per message, 10 messages/s sustained with bursts of 50; excess is dropped.
+    - Receivers ignore unknown fields: new optional fields may appear within protocol version 1.
+
+    Hostnames are provisional until general availability.
+defaultContentType: application/json
+servers:
+  production:
+    host: 'mqtt.{region}.lumio.io:8883'
+    protocol: mqtts
+    protocolVersion: '5'
+    description: Regional broker. TLS 1.2+ (1.3 preferred); trust the Lumio Device CA chain returned at provisioning.
+    variables:
+      region:
+        default: eu
+        enum: [eu]
+    security:
+      - $ref: '#/components/securitySchemes/deviceCertificate'
+      - $ref: '#/components/securitySchemes/devicePsk'
+channels:
+  telemetry:
+    address: 'dev/{mid}/{did}/telemetry'
+    parameters: { mid: { $ref: '#/components/parameters/mid' }, did: { $ref: '#/components/parameters/did' } }
+    messages: { telemetry: { $ref: '#/components/messages/telemetry' } }
+  event:
+    address: 'dev/{mid}/{did}/event'
+    parameters: { mid: { $ref: '#/components/parameters/mid' }, did: { $ref: '#/components/parameters/did' } }
+    messages: { event: { $ref: '#/components/messages/event' } }
+  stateReported:
+    address: 'dev/{mid}/{did}/state/reported'
+    parameters: { mid: { $ref: '#/components/parameters/mid' }, did: { $ref: '#/components/parameters/did' } }
+    messages: { stateReported: { $ref: '#/components/messages/stateReported' } }
+  stateDesired:
+    address: 'dev/{mid}/{did}/state/desired'
+    parameters: { mid: { $ref: '#/components/parameters/mid' }, did: { $ref: '#/components/parameters/did' } }
+    messages: { stateDesired: { $ref: '#/components/messages/stateDesired' } }
+  claim:
+    address: 'dev/{mid}/{did}/claim'
+    parameters: { mid: { $ref: '#/components/parameters/mid' }, did: { $ref: '#/components/parameters/did' } }
+    messages: { claim: { $ref: '#/components/messages/claim' } }
+  claimResult:
+    address: 'dev/{mid}/{did}/claim/result'
+    parameters: { mid: { $ref: '#/components/parameters/mid' }, did: { $ref: '#/components/parameters/did' } }
+    messages: { claimResult: { $ref: '#/components/messages/claimResult' } }
+  otaNotify:
+    address: 'dev/{mid}/{did}/ota/notify'
+    parameters: { mid: { $ref: '#/components/parameters/mid' }, did: { $ref: '#/components/parameters/did' } }
+    messages: { otaNotify: { $ref: '#/components/messages/otaNotify' } }
+  otaProgress:
+    address: 'dev/{mid}/{did}/ota/progress'
+    parameters: { mid: { $ref: '#/components/parameters/mid' }, did: { $ref: '#/components/parameters/did' } }
+    messages: { otaProgress: { $ref: '#/components/messages/otaProgress' } }
+  analytics:
+    address: 'dev/{mid}/{did}/analytics'
+    parameters: { mid: { $ref: '#/components/parameters/mid' }, did: { $ref: '#/components/parameters/did' } }
+    messages: { analytics: { $ref: '#/components/messages/analytics' } }
+  lwt:
+    address: 'dev/{mid}/{did}/lwt'
+    parameters: { mid: { $ref: '#/components/parameters/mid' }, did: { $ref: '#/components/parameters/did' } }
+    messages: { lwt: { $ref: '#/components/messages/lwt' } }
+operations:
+  sendTelemetry:
+    action: send
+    channel: { $ref: '#/channels/telemetry' }
+    summary: Periodic sensor values (at least every report_interval_s of each channel).
+    bindings: { mqtt: { qos: 0, retain: false } }
+  sendEvent:
+    action: send
+    channel: { $ref: '#/channels/event' }
+    summary: A discrete event on a channel.
+    bindings: { mqtt: { qos: 1, retain: false } }
+  sendStateReported:
+    action: send
+    channel: { $ref: '#/channels/stateReported' }
+    summary: Full actuator state after every connect, change and applied desired state.
+    bindings: { mqtt: { qos: 1, retain: true } }
+  receiveStateDesired:
+    action: receive
+    channel: { $ref: '#/channels/stateDesired' }
+    summary: Commands. Subscribe before publishing anything else; the retained message arrives on subscribe.
+    bindings: { mqtt: { qos: 1 } }
+  sendClaim:
+    action: send
+    channel: { $ref: '#/channels/claim' }
+    summary: Bind the device to the home that issued the claim token.
+    bindings: { mqtt: { qos: 1, retain: false } }
+    reply:
+      channel: { $ref: '#/channels/claimResult' }
+  receiveClaimResult:
+    action: receive
+    channel: { $ref: '#/channels/claimResult' }
+    summary: Claim outcome, within 15 s.
+    bindings: { mqtt: { qos: 1 } }
+  receiveOtaNotify:
+    action: receive
+    channel: { $ref: '#/channels/otaNotify' }
+    summary: Firmware update offer.
+    bindings: { mqtt: { qos: 1 } }
+  sendOtaProgress:
+    action: send
+    channel: { $ref: '#/channels/otaProgress' }
+    summary: Update state changes and download progress.
+    bindings: { mqtt: { qos: 1, retain: false } }
+  sendAnalytics:
+    action: send
+    channel: { $ref: '#/channels/analytics' }
+    summary: Device health metrics (hourly recommended, at most every 5 minutes).
+    bindings: { mqtt: { qos: 0, retain: false } }
+  sendLastWill:
+    action: send
+    channel: { $ref: '#/channels/lwt' }
+    summary: Registered as the Last Will in CONNECT; the broker publishes it when the device disappears.
+    bindings: { mqtt: { qos: 1, retain: false } }
+components:
+  securitySchemes:
+    deviceCertificate:
+      type: X509
+      description: Mutual TLS with the device certificate issued at provisioning (CN = did). Preferred.
+    devicePsk:
+      type: userPassword
+      description: 'Devices provisioned with a PSK: username = did, password = v1.<unix s>.<nonce>.<hex HMAC-SHA256(psk, "<did>.<unix s>.<nonce>")>. Marked low trust.'
+  parameters:
+    mid:
+      description: Manufacturer short id (3-8 lowercase letters/digits); the part of the did before the dash.
+      examples: [acme]
+    did:
+      description: Device id '{mid}-{serial}'; must equal the MQTT client id.
+      examples: [acme-P2A1B2C3D4]
+  messages:
+    telemetry: { name: TelemetryMsg, payload: { $ref: '../schemas/mqtt/telemetry.json' } }
+    event: { name: EventMsg, payload: { $ref: '../schemas/mqtt/event.json' } }
+    stateReported: { name: ReportedStateMsg, payload: { $ref: '../schemas/mqtt/state-reported.json' } }
+    stateDesired: { name: DesiredStateMsg, payload: { $ref: '../schemas/mqtt/state-desired.json' } }
+    claim: { name: ClaimMsg, payload: { $ref: '../schemas/mqtt/claim.json' } }
+    claimResult: { name: ClaimResultMsg, payload: { $ref: '../schemas/mqtt/claim-result.json' } }
+    otaNotify: { name: OtaNotifyMsg, payload: { $ref: '../schemas/mqtt/ota-notify.json' } }
+    otaProgress: { name: OtaProgressMsg, payload: { $ref: '../schemas/mqtt/ota-progress.json' } }
+    analytics: { name: AnalyticsMsg, payload: { $ref: '../schemas/mqtt/analytics.json' } }
+    lwt: { name: LastWillMsg, payload: { $ref: '../schemas/mqtt/lwt.json' } }

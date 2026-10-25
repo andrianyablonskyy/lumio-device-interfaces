@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/firmware-manifest.json",
+  "title": "FirmwareManifest",
+  "description": "Signed description of one firmware image. The Ed25519 signature covers the canonical JSON of this object (keys sorted, no whitespace, UTF-8). The device verifies it with the manufacturer key embedded in its bootloader.",
+  "type": "object",
+  "required": ["hw_type", "model_code", "version", "size", "sha256", "mandatory", "created_at"],
+  "additionalProperties": false,
+  "properties": {
+    "hw_type": { "$ref": "common.json#/$defs/Uuid", "description": "HW type id the image is built for." },
+    "model_code": { "type": "string", "minLength": 1, "maxLength": 32 },
+    "version": { "$ref": "common.json#/$defs/Semver" },
+    "min_from_version": { "$ref": "common.json#/$defs/Semver", "description": "Oldest installed version that may update to this image directly." },
+    "size": { "type": "integer", "minimum": 1, "description": "Image size in bytes." },
+    "sha256": { "$ref": "common.json#/$defs/Sha256Hex" },
+    "mandatory": { "type": "boolean" },
+    "created_at": { "$ref": "common.json#/$defs/Timestamp" }
+  }
+}

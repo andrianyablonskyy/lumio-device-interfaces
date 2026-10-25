@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/mqtt/claim.json",
+  "title": "ClaimMsg",
+  "description": "Topic dev/{mid}/{did}/claim, device to cloud, QoS 1. Sent once after the first connection with the claim token received during pairing.",
+  "type": "object",
+  "allOf": [{ "$ref": "../common.json#/$defs/Envelope" }],
+  "required": ["token", "fw"],
+  "properties": {
+    "token": { "type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[A-Za-z0-9_-]+$", "description": "Opaque claim token from the app (valid 10 minutes)." },
+    "fw": { "$ref": "../common.json#/$defs/Semver" },
+    "channels": { "type": "array", "minItems": 1, "maxItems": 64, "items": { "$ref": "../capabilities.json#/$defs/ChannelSpec" }, "description": "Only for HW types that allow device-reported channels." }
+  },
+  "unevaluatedProperties": false
+}

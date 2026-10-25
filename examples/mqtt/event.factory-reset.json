@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "ts": 1761210003000,
+  "seq": 0,
+  "boot": "Zx81LmQa",
+  "channel": "device",
+  "type": "reset",
+  "data": {
+    "trigger": "button"
+  }
+}

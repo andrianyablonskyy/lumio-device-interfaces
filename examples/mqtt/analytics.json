@@ -1,0 +1,19 @@
+{
+  "v": 1,
+  "ts": 1761213600000,
+  "seq": 120,
+  "boot": "b7Kq2Xp9",
+  "period_s": 3600,
+  "uptime_s": 86400,
+  "metrics": {
+    "heap_free_b": 81234,
+    "heap_min_free_b": 60112,
+    "rssi_dbm": -62.5,
+    "wifi_reconnects": 0,
+    "mqtt_reconnects": 1,
+    "publish_failures": 0,
+    "cmd_latency_ms": 84,
+    "relay_cycles": 12,
+    "x_mains_frequency_hz": 50.01
+  }
+}

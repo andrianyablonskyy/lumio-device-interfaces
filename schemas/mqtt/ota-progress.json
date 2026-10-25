@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/mqtt/ota-progress.json",
+  "title": "OtaProgressMsg",
+  "description": "Topic dev/{mid}/{did}/ota/progress, device to cloud, QoS 1. Firmware update state changes; downloading progress at most every 5 s.",
+  "type": "object",
+  "allOf": [{ "$ref": "../common.json#/$defs/Envelope" }],
+  "required": ["job_id", "state"],
+  "properties": {
+    "job_id": { "$ref": "../common.json#/$defs/Uuid" },
+    "state": { "enum": ["offered", "deferred", "downloading", "verified", "installing", "success", "failed", "rolled_back"] },
+    "pct": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "error": { "$ref": "../common.json#/$defs/CodeName", "description": "Standard OTA error code (docs/07-firmware-updates.md) or x_ custom code. url_expired asks for a fresh download URL." }
+  },
+  "unevaluatedProperties": false
+}

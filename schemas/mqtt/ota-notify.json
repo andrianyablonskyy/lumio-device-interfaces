@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/mqtt/ota-notify.json",
+  "title": "OtaNotifyMsg",
+  "description": "Topic dev/{mid}/{did}/ota/notify, cloud to device, QoS 1. Offers a firmware image. Verify manifest_sig with the bootloader key and refuse versions not higher than the running one.",
+  "type": "object",
+  "required": ["v", "job_id", "version", "url", "size", "sha256", "manifest", "manifest_sig", "mandatory"],
+  "additionalProperties": false,
+  "properties": {
+    "v": { "$ref": "../common.json#/$defs/ProtocolVersion" },
+    "job_id": { "$ref": "../common.json#/$defs/Uuid" },
+    "version": { "$ref": "../common.json#/$defs/Semver" },
+    "url": { "type": "string", "format": "uri", "pattern": "^https://", "description": "Signed download URL, valid 1 hour; supports HTTP range requests." },
+    "size": { "type": "integer", "minimum": 1 },
+    "sha256": { "$ref": "../common.json#/$defs/Sha256Hex" },
+    "manifest": { "$ref": "../firmware-manifest.json" },
+    "manifest_sig": { "$ref": "../common.json#/$defs/Base64", "description": "Ed25519 signature (64 bytes) over the canonical JSON of manifest." },
+    "install_after": { "$ref": "../common.json#/$defs/UnixMs", "description": "Do not reboot into the new image before this time (user maintenance window)." },
+    "mandatory": { "type": "boolean" }
+  }
+}

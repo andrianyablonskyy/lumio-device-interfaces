@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/mqtt/analytics.json",
+  "title": "AnalyticsMsg",
+  "description": "Topic dev/{mid}/{did}/analytics, device to cloud, QoS 0. Device health metrics for the manufacturer fleet analytics: no user data. At most one message per 5 minutes; recommended hourly, plus one right after boot with reset_reason.",
+  "type": "object",
+  "allOf": [{ "$ref": "../common.json#/$defs/Envelope" }],
+  "required": ["period_s", "uptime_s", "metrics"],
+  "properties": {
+    "period_s": { "type": "integer", "minimum": 300, "maximum": 86400, "description": "Length of the period the counters cover." },
+    "uptime_s": { "type": "integer", "minimum": 0 },
+    "reset_reason": { "enum": ["power_on", "software", "ota", "watchdog", "panic", "brownout", "deep_sleep", "external", "unknown"], "description": "Why the device last restarted; send in the first message after boot." },
+    "crash": {
+      "description": "Details of the crash that caused the last restart (reset_reason panic or watchdog).",
+      "type": "object",
+      "required": ["code"],
+      "additionalProperties": false,
+      "properties": {
+        "code": { "$ref": "../common.json#/$defs/CodeName" },
+        "pc": { "type": "string", "pattern": "^0x[0-9a-f]{1,16}$", "description": "Program counter at the crash." },
+        "task": { "type": "string", "maxLength": 32 },
+        "fw": { "$ref": "../common.json#/$defs/Semver", "description": "Firmware that crashed (it may have been rolled back since)." }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "patternProperties": { "^x_[a-z0-9_]{1,46}$": { "type": "number" } },
+      "properties": {
+        "heap_free_b": { "type": "integer", "minimum": 0, "description": "Free heap now, bytes." },
+        "heap_min_free_b": { "type": "integer", "minimum": 0, "description": "Lowest free heap since boot, bytes." },
+        "rssi_dbm": { "type": "number", "minimum": -127, "maximum": 0, "description": "Average signal strength over the period." },
+        "wifi_reconnects": { "type": "integer", "minimum": 0, "description": "Wi-Fi reconnections in the period." },
+        "mqtt_reconnects": { "type": "integer", "minimum": 0, "description": "Broker reconnections in the period." },
+        "publish_failures": { "type": "integer", "minimum": 0, "description": "MQTT publishes that failed or timed out in the period." },
+        "cmd_latency_ms": { "type": "integer", "minimum": 0, "description": "Average time from desired state received to reported, ms." },
+        "cpu_temp_c": { "type": "number", "minimum": -60, "maximum": 200 },
+        "battery_mv": { "type": "integer", "minimum": 0 },
+        "battery_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "flash_writes": { "type": "integer", "minimum": 0, "description": "Flash/NVS writes in the period (wear)." },
+        "relay_cycles": { "type": "integer", "minimum": 0, "description": "Relay switching cycles in the period (wear)." }
+      }
+    }
+  },
+  "unevaluatedProperties": false
+}

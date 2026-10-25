@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/mqtt/lwt.json",
+  "title": "LastWillMsg",
+  "description": "Topic dev/{mid}/{did}/lwt, set as the MQTT Last Will at CONNECT (QoS 1, not retained). The broker publishes it when the connection drops.",
+  "type": "object",
+  "required": ["online"],
+  "additionalProperties": false,
+  "properties": { "online": { "const": false } }
+}

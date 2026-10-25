@@ -1,0 +1,14 @@
+{
+  "id": "01929a10-0000-7000-8000-000000000003",
+  "type": "campaign.status_changed",
+  "at": "2026-10-23T10:00:00Z",
+  "manufacturer_id": "01928f00-0000-7000-8000-00000000acde",
+  "data": {
+    "campaign_id": "01929b00-0000-7000-8000-0000000000c1",
+    "firmware_id": "01929b00-0000-7000-8000-0000000000f0",
+    "status": "paused",
+    "current_step": 1,
+    "failure_rate_pct": 3.4,
+    "pause_reason": "failure_threshold"
+  }
+}

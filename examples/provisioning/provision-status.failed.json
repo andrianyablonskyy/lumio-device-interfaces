@@ -1,0 +1,6 @@
+{
+  "v": 1,
+  "state": "failed",
+  "error": "claim_rejected",
+  "claim_reason": "already_owned"
+}

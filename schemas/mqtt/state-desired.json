@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/mqtt/state-desired.json",
+  "title": "DesiredStateMsg",
+  "description": "Topic dev/{mid}/{did}/state/desired, cloud to device, QoS 1, retained. The complete desired state; apply it when version is higher than the last applied one, then report state with ack_version = version. This is the only command path.",
+  "type": "object",
+  "required": [
+    "v",
+    "version",
+    "state",
+    "issued_by"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "v": {
+      "$ref": "../common.json#/$defs/ProtocolVersion"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "state": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "../common.json#/$defs/ChannelName"
+      },
+      "properties": {
+        "factory_reset": {
+          "const": true,
+          "description": "Reserved: erase user data and Wi-Fi credentials, report a 'reset' event on channel 'device', reboot unclaimed."
+        },
+        "join_mode": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600,
+          "description": "Reserved, gateways only: accept new sub-devices for this many seconds; sent together with join_token."
+        },
+        "join_token": {
+          "type": "string",
+          "minLength": 16,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "description": "Reserved, gateways only: claim token to put into the claim message of every sub-device that joins during join_mode."
+        }
+      },
+      "dependentRequired": {
+        "join_mode": [
+          "join_token"
+        ],
+        "join_token": [
+          "join_mode"
+        ]
+      }
+    },
+    "issued_by": {
+      "enum": [
+        "user",
+        "automation",
+        "schedule"
+      ]
+    },
+    "ttl_s": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Informational: the cloud clears this retained command after ttl_s seconds."
+    }
+  }
+}

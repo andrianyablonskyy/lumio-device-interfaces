@@ -1,0 +1,1272 @@
+openapi: 3.1.0
+info:
+  title: Lumio Manufacturer API
+  version: 0.1.0
+  summary: Device provisioning, hardware types, firmware updates, fleet analytics and webhooks for device manufacturers.
+  description: |
+    Two ways to authenticate:
+
+    - **Portal token** (`mfrBearer`): access token of a manufacturer portal user (`mfr_admin`, `mfr_developer`,
+      `mfr_billing`), sent as `Authorization: Bearer <token>`.
+    - **API key signature** (`mfrKeySignature`): machine calls from production lines. Every request carries
+      `X-Lumio-Key` (key id), `X-Lumio-Timestamp` (Unix seconds, ±300 s) and `X-Lumio-Signature`:
+      `hex(HMAC-SHA256(secret, METHOD + "\n" + path_with_query + "\n" + timestamp + "\n" + hex(SHA-256(body))))`.
+      The path starts at `/v1`. See docs/09-manufacturer-api.md and test-vectors/mfr-request-signature.json.
+
+    Conventions: JSON with `snake_case` fields, RFC 3339 UTC timestamps, cursor pagination
+    (`?limit=50&cursor=…` → `{ items, next_cursor }`, `limit` ≤ 200), errors as RFC 9457 `application/problem+json`
+    with a stable `code`. Creates accept an `Idempotency-Key` header (UUID); a replay returns the original response
+    with `Idempotency-Replayed: true`.
+
+    Hostnames are provisional until general availability.
+servers:
+  - url: https://api.{region}.lumio.io/v1
+    variables:
+      region:
+        default: eu
+        enum: [eu]
+tags:
+  - name: Provisioning
+    description: Factory registration of units (device identity, certificates, claim secrets).
+  - name: Hardware types
+    description: Models, capabilities and the firmware signing key.
+  - name: Test devices
+    description: Own units that may be paired before the hardware type is approved.
+  - name: Firmware
+    description: Signed images and staged rollout campaigns.
+  - name: Analytics
+    description: Fleet health aggregated from device analytics messages. No user data.
+  - name: Webhooks
+    description: Event notifications to manufacturer HTTPS endpoints.
+security:
+  - mfrBearer: []
+paths:
+  /mfr/provisioning/devices:
+    post:
+      tags: [Provisioning]
+      operationId: provisionDevice
+      summary: Register one unit
+      description: |
+        Send a CSR (P-256 ECDSA or Ed25519 key generated on the device; its subject is ignored) to receive an X.509
+        certificate with CN = did, valid 20 years, or a pre-shared key for devices that cannot do mutual TLS
+        (flagged low trust). The API key must be active and linked to the hardware type. Only hashes of the
+        claim secret and PSK are stored: print the QR payload now.
+      security:
+        - mfrKeySignature: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProvisionReq' }
+            examples:
+              x509:
+                value:
+                  hw_type_id: 01928f3e-5a7b-7c00-8d00-0000000000a1
+                  serial: P2A1B2C3D4
+                  mac: '24:0a:c4:12:34:56'
+                  csr_pem: "-----BEGIN CERTIFICATE REQUEST-----\nMIIBDzCBtgIBADAAMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...\n-----END CERTIFICATE REQUEST-----\n"
+                  pairing_pubkey: BCt/xcVi9mEY/OKTUE96LstdCgi/0hdY1iovgSwWNZC4fQe1ANMYMhluBo9xOnzayrluuXrR/0VHgV8oIcxXGCQ=
+              psk:
+                value:
+                  hw_type_id: 01928f3e-5a7b-7c00-8d00-0000000000a1
+                  serial: P2Z9Y8X7W6
+                  psk: 3f7a1c9e5b2d4f6a8c0e1b3d5f7a9c2e
+      responses:
+        '201':
+          description: Provisioned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProvisionRes' }
+              examples:
+                x509:
+                  value:
+                    did: acme-P2A1B2C3D4
+                    cert_pem: "-----BEGIN CERTIFICATE-----\nMIIB...\n-----END CERTIFICATE-----\n"
+                    ca_chain_pem: "-----BEGIN CERTIFICATE-----\nMIIC...\n-----END CERTIFICATE-----\n"
+                    cert_not_after: '2046-10-23T09:00:00Z'
+                    claim_secret: mfrwgy3bmjzgk2ltnfzw4zlmmu
+                    qr_payload: lumio://claim?did=acme-P2A1B2C3D4&cs=mfrwgy3bmjzgk2ltnfzw4zlmmu
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+        '429': { $ref: '#/components/responses/Problem' }
+  /mfr/provisioning/devices:batch:
+    post:
+      tags: [Provisioning]
+      operationId: provisionDevices
+      summary: Register up to 1,000 units
+      description: Each item succeeds or fails on its own (for example a duplicate serial); the call answers 200 with one result per item, in order.
+      security:
+        - mfrKeySignature: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              additionalProperties: false
+              properties:
+                items: { type: array, minItems: 1, maxItems: 1000, items: { $ref: '#/components/schemas/ProvisionReq' } }
+            examples:
+              two:
+                value:
+                  items:
+                    - { hw_type_id: 01928f3e-5a7b-7c00-8d00-0000000000a1, serial: P2A1B2C3D5, csr_pem: "-----BEGIN CERTIFICATE REQUEST-----\n...\n-----END CERTIFICATE REQUEST-----\n" }
+                    - { hw_type_id: 01928f3e-5a7b-7c00-8d00-0000000000a1, serial: P2A1B2C3D4, csr_pem: "-----BEGIN CERTIFICATE REQUEST-----\n...\n-----END CERTIFICATE REQUEST-----\n" }
+      responses:
+        '200':
+          description: One result per item
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                additionalProperties: false
+                properties:
+                  results:
+                    type: array
+                    items:
+                      oneOf:
+                        - type: object
+                          required: [ok, serial, device]
+                          additionalProperties: false
+                          properties:
+                            ok: { const: true }
+                            serial: { $ref: '../schemas/common.json#/$defs/Serial' }
+                            device: { $ref: '#/components/schemas/ProvisionRes' }
+                        - type: object
+                          required: [ok, serial, error]
+                          additionalProperties: false
+                          properties:
+                            ok: { const: false }
+                            serial: { type: string }
+                            error: { $ref: '../schemas/common.json#/$defs/CodeName', description: 'For example conflict (serial already provisioned) or validation_failed.' }
+              examples:
+                partial:
+                  value:
+                    results:
+                      - ok: true
+                        serial: P2A1B2C3D5
+                        device:
+                          did: acme-P2A1B2C3D5
+                          cert_pem: "-----BEGIN CERTIFICATE-----\nMIIB...\n-----END CERTIFICATE-----\n"
+                          ca_chain_pem: "-----BEGIN CERTIFICATE-----\nMIIC...\n-----END CERTIFICATE-----\n"
+                          cert_not_after: '2046-10-23T09:00:00Z'
+                          claim_secret: nb2hi4dthixs6y3vonzw2zlsom
+                          qr_payload: lumio://claim?did=acme-P2A1B2C3D5&cs=nb2hi4dthixs6y3vonzw2zlsom
+                      - { ok: false, serial: P2A1B2C3D4, error: conflict }
+        '400': { $ref: '#/components/responses/Problem' }
+        '401': { $ref: '#/components/responses/Problem' }
+        '403': { $ref: '#/components/responses/Problem' }
+  /mfr/provisioning/devices/{did}/revoke:
+    post:
+      tags: [Provisioning]
+      operationId: revokeDevice
+      summary: Revoke a unit's credentials
+      description: For stolen or defective units (role mfr_admin). The device is disabled and its connection is closed within 60 seconds.
+      parameters:
+        - { name: did, in: path, required: true, schema: { $ref: '../schemas/common.json#/$defs/Did' } }
+      responses:
+        '204': { description: Revoked }
+        '404': { $ref: '#/components/responses/Problem' }
+  /mfr/fleet:
+    get:
+      tags: [Provisioning]
+      operationId: getFleet
+      summary: Fleet counts
+      description: Units by status and firmware version, and the share online now. No user data.
+      parameters:
+        - { name: hw_type_id, in: query, schema: { $ref: '../schemas/common.json#/$defs/Uuid' } }
+      responses:
+        '200':
+          description: Fleet statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total, by_status, by_fw_version, online_pct]
+                additionalProperties: false
+                properties:
+                  total: { type: integer, minimum: 0 }
+                  by_status:
+                    type: object
+                    propertyNames: { enum: [provisioned, claimed, disabled, retired] }
+                    additionalProperties: { type: integer, minimum: 0 }
+                  by_fw_version:
+                    type: object
+                    propertyNames: { $ref: '../schemas/common.json#/$defs/Semver' }
+                    additionalProperties: { type: integer, minimum: 0 }
+                  online_pct: { type: number, minimum: 0, maximum: 100 }
+              examples:
+                fleet:
+                  value: { total: 12840, by_status: { provisioned: 2100, claimed: 10650, disabled: 90 }, by_fw_version: { 1.4.1: 1200, 1.4.2: 9450 }, online_pct: 93.2 }
+  /mfr/hw-types:
+    get:
+      tags: [Hardware types]
+      operationId: listHwTypes
+      summary: List hardware types
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Page of hardware types
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HwTypePage' }
+              examples:
+                page: { value: { items: [{ id: 01928f3e-5a7b-7c00-8d00-0000000000a1, status: approved, images: ['https://cdn.eu.lumio.io/hw/01928f3e/front.png'], review_note: null, created_at: '2026-10-20T08:00:00Z', model_code: P2, name: Smart Plug P2, category: actuator, capabilities: { channels: [{ channel: switch_1, capability: switch, role: actuator }] }, provisioning_methods: [ble, qr], fw_signing_pubkey: eN0vIzHLV6wfvNjg5vkKfi+xzF0D89en3P2CzqjptvQ= }], next_cursor: null } }
+    post:
+      tags: [Hardware types]
+      operationId: createHwType
+      summary: Create a draft hardware type
+      description: Role mfr_developer. The capability schema is validated against the catalogue; custom capabilities use the x_ prefix.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HwTypeReq' }
+            examples:
+              plug: { $ref: '#/components/examples/HwTypeReq' }
+      responses:
+        '201':
+          description: Draft created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HwType' }
+              examples:
+                draft: { $ref: '#/components/examples/HwType' }
+        '400': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /mfr/hw-types/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [Hardware types]
+      operationId: getHwType
+      summary: Get a hardware type
+      responses:
+        '200':
+          description: Hardware type
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HwType' }
+              examples:
+                draft: { $ref: '#/components/examples/HwType' }
+        '404': { $ref: '#/components/responses/Problem' }
+    patch:
+      tags: [Hardware types]
+      operationId: updateHwType
+      summary: Edit a hardware type
+      description: Drafts can change everything; approved types only images and ui_hints.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HwTypeUpdateReq' }
+            examples:
+              rename: { value: { name: Smart Plug P2 Mini } }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HwType' }
+              examples:
+                draft: { $ref: '#/components/examples/HwType' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /mfr/hw-types/{id}/submit:
+    post:
+      tags: [Hardware types]
+      operationId: submitHwType
+      summary: Send a draft for review
+      description: Lumio reviews it; the result arrives as webhook hw_type.reviewed. Until approval only test devices can be paired.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: In review
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HwType' }
+              examples:
+                inReview: { $ref: '#/components/examples/HwType' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /mfr/hw-types/{id}/images:
+    post:
+      tags: [Hardware types]
+      operationId: createHwTypeImageUpload
+      summary: Upload a product image
+      description: Returns a presigned URL; PUT the image there (PNG, JPEG or WebP, at most 5 MB).
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content_type, size_bytes]
+              additionalProperties: false
+              properties:
+                content_type: { enum: [image/png, image/jpeg, image/webp] }
+                size_bytes: { type: integer, minimum: 1, maximum: 5242880 }
+            examples:
+              png: { value: { content_type: image/png, size_bytes: 182044 } }
+      responses:
+        '201':
+          description: Upload URL
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [upload_url, storage_key, expires_at]
+                additionalProperties: false
+                properties:
+                  upload_url: { type: string, format: uri }
+                  storage_key: { type: string }
+                  expires_at: { $ref: '../schemas/common.json#/$defs/Timestamp' }
+              examples:
+                url: { value: { upload_url: 'https://uploads.eu.lumio.io/hw/01928f3e/front.png?X-Signature=example', storage_key: hw/01928f3e/front.png, expires_at: '2026-10-23T09:15:00Z' } }
+  /mfr/test-devices:
+    get:
+      tags: [Test devices]
+      operationId: listTestDevices
+      summary: List test devices
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Page of test devices
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                additionalProperties: false
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/TestDevice' } }
+                  next_cursor: { type: [string, 'null'] }
+              examples:
+                page: { value: { items: [{ device_id: 01929c00-0000-7000-8000-0000000000d1, did: acme-P2TEST0001, marked_at: '2026-10-21T08:00:00Z' }], next_cursor: null } }
+    post:
+      tags: [Test devices]
+      operationId: markTestDevice
+      summary: Mark an own unit as a test device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [did]
+              additionalProperties: false
+              properties:
+                did: { $ref: '../schemas/common.json#/$defs/Did' }
+            examples:
+              unit: { value: { did: acme-P2TEST0001 } }
+      responses:
+        '201':
+          description: Marked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TestDevice' }
+              examples:
+                unit: { value: { device_id: 01929c00-0000-7000-8000-0000000000d1, did: acme-P2TEST0001, marked_at: '2026-10-21T08:00:00Z' } }
+  /mfr/test-devices/{id}:
+    delete:
+      tags: [Test devices]
+      operationId: unmarkTestDevice
+      summary: Remove the test flag
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '204': { description: Removed }
+  /mfr/firmware:
+    get:
+      tags: [Firmware]
+      operationId: listFirmware
+      summary: List firmware images
+      parameters:
+        - { name: hw_type_id, in: query, schema: { $ref: '../schemas/common.json#/$defs/Uuid' } }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Page of images
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                additionalProperties: false
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/FirmwareImage' } }
+                  next_cursor: { type: [string, 'null'] }
+              examples:
+                page: { value: { items: [{ id: 01929b00-0000-7000-8000-0000000000f0, hw_type_id: 01928f3e-5a7b-7c00-8d00-0000000000a1, version: 1.5.0, size_bytes: 1048576, sha256: d53dde0d595ea480e1fc8a5d8ed9f93205dc0d6d7d3beaefd91bdb9ffc80eda6, status: verified, mandatory: false, release_notes: Faster reconnect after router restarts., created_at: '2026-10-20T09:30:00Z' }], next_cursor: null } }
+    post:
+      tags: [Firmware]
+      operationId: beginFirmwareUpload
+      summary: Begin a firmware upload
+      description: Returns presigned multipart URLs. Upload the parts, then call complete with the signed manifest.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hw_type_id, version, size, sha256]
+              additionalProperties: false
+              properties:
+                hw_type_id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+                version: { $ref: '../schemas/common.json#/$defs/Semver' }
+                size: { type: integer, minimum: 1 }
+                sha256: { $ref: '../schemas/common.json#/$defs/Sha256Hex' }
+            examples:
+              image: { value: { hw_type_id: 01928f3e-5a7b-7c00-8d00-0000000000a1, version: 1.5.0, size: 1048576, sha256: d53dde0d595ea480e1fc8a5d8ed9f93205dc0d6d7d3beaefd91bdb9ffc80eda6 } }
+      responses:
+        '201':
+          description: Upload started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, upload_id, parts, expires_at]
+                additionalProperties: false
+                properties:
+                  id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+                  upload_id: { type: string }
+                  parts:
+                    type: array
+                    minItems: 1
+                    items:
+                      type: object
+                      required: [part_number, url]
+                      additionalProperties: false
+                      properties:
+                        part_number: { type: integer, minimum: 1 }
+                        url: { type: string, format: uri }
+                  expires_at: { $ref: '../schemas/common.json#/$defs/Timestamp' }
+              examples:
+                upload:
+                  value:
+                    id: 01929b00-0000-7000-8000-0000000000f0
+                    upload_id: 2~mXH7example
+                    parts: [{ part_number: 1, url: 'https://uploads.eu.lumio.io/fw/01929b00?partNumber=1&X-Signature=example' }]
+                    expires_at: '2026-10-23T10:00:00Z'
+        '402': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /mfr/firmware/{fid}/complete:
+    post:
+      tags: [Firmware]
+      operationId: completeFirmwareUpload
+      summary: Finish an upload with the signed manifest
+      description: |
+        Lumio checks size, SHA-256 and the manifest signature against the hardware type's fw_signing_pubkey
+        (Ed25519 over the canonical JSON). The image becomes verified or rejected; webhooks firmware.verified /
+        firmware.rejected report the result.
+      parameters:
+        - $ref: '#/components/parameters/Fid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [manifest, manifest_sig, release_notes, mandatory]
+              additionalProperties: false
+              properties:
+                manifest: { $ref: '../schemas/firmware-manifest.json' }
+                manifest_sig: { $ref: '../schemas/common.json#/$defs/Base64' }
+                release_notes: { type: string, minLength: 1, maxLength: 10000 }
+                mandatory: { type: boolean }
+                min_from_version: { $ref: '../schemas/common.json#/$defs/Semver' }
+            examples:
+              signed:
+                value:
+                  manifest: { hw_type: 01928f3e-5a7b-7c00-8d00-0000000000a1, model_code: P2, version: 1.5.0, min_from_version: 1.2.0, size: 1048576, sha256: d53dde0d595ea480e1fc8a5d8ed9f93205dc0d6d7d3beaefd91bdb9ffc80eda6, mandatory: false, created_at: '2026-10-20T09:00:00Z' }
+                  manifest_sig: GUVCJOVaecWi+hmPfZ7DpF1VSrRSeGtN95IwjbCkK8kFXoX9Np1tGo1J1ndaQC9hsJopyfC9fHJFpTl0twYgDg==
+                  release_notes: Faster reconnect after router restarts.
+                  mandatory: false
+                  min_from_version: 1.2.0
+      responses:
+        '200':
+          description: Image (status verified or rejected)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FirmwareImage' }
+              examples:
+                verified: { $ref: '#/components/examples/FirmwareImage' }
+        '422': { $ref: '#/components/responses/Problem' }
+  /mfr/firmware/{fid}/withdraw:
+    post:
+      tags: [Firmware]
+      operationId: withdrawFirmware
+      summary: Withdraw an image
+      description: Cancels pending jobs and stops campaigns that use it. Devices already updated keep it.
+      parameters:
+        - $ref: '#/components/parameters/Fid'
+      responses:
+        '200':
+          description: Withdrawn
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FirmwareImage' }
+              examples:
+                withdrawn: { $ref: '#/components/examples/FirmwareImage' }
+  /mfr/campaigns:
+    get:
+      tags: [Firmware]
+      operationId: listCampaigns
+      summary: List rollout campaigns
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Page of campaigns
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                additionalProperties: false
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Campaign' } }
+                  next_cursor: { type: [string, 'null'] }
+              examples:
+                page: { value: { items: [{ id: 01929b00-0000-7000-8000-0000000000c1, firmware_id: 01929b00-0000-7000-8000-0000000000f0, channel: stable, target_filter: { from_versions: [1.4.2] }, steps: [1, 10, 50, 100], current_step: 1, failure_threshold_pct: 2, status: running, pause_reason: null, created_at: '2026-10-22T08:00:00Z' }], next_cursor: null } }
+    post:
+      tags: [Firmware]
+      operationId: createCampaign
+      summary: Create a staged rollout
+      description: Steps are cumulative percentages of the eligible fleet (default 1, 10, 50, 100). A step whose failure rate exceeds failure_threshold_pct pauses the campaign.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [firmware_id, channel, target_filter]
+              additionalProperties: false
+              properties:
+                firmware_id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+                channel: { enum: [beta, stable] }
+                target_filter: { $ref: '#/components/schemas/TargetFilter' }
+                steps: { type: array, minItems: 1, items: { type: integer, minimum: 1, maximum: 100 } }
+                failure_threshold_pct: { type: number, minimum: 0, maximum: 100 }
+            examples:
+              staged: { value: { firmware_id: 01929b00-0000-7000-8000-0000000000f0, channel: stable, target_filter: { from_versions: [1.4.1, 1.4.2], countries: [UA] }, steps: [1, 10, 50, 100], failure_threshold_pct: 2 } }
+      responses:
+        '201':
+          description: Draft campaign
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Campaign' }
+              examples:
+                draft: { $ref: '#/components/examples/Campaign' }
+  /mfr/campaigns/{cid}:
+    get:
+      tags: [Firmware]
+      operationId: getCampaign
+      summary: Campaign progress
+      parameters:
+        - $ref: '#/components/parameters/Cid'
+      responses:
+        '200':
+          description: Progress by state, failure rate, per-step statistics, top error codes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CampaignDetail' }
+              examples:
+                running:
+                  value:
+                    id: 01929b00-0000-7000-8000-0000000000c1
+                    firmware_id: 01929b00-0000-7000-8000-0000000000f0
+                    channel: stable
+                    target_filter: { from_versions: [1.4.1, 1.4.2] }
+                    steps: [1, 10, 50, 100]
+                    current_step: 1
+                    failure_threshold_pct: 2
+                    status: running
+                    pause_reason: null
+                    created_at: '2026-10-22T08:00:00Z'
+                    counts: { pending: 820, offered: 40, downloading: 25, success: 160, failed: 3, rolled_back: 1 }
+                    failure_rate_pct: 0.4
+                    step_stats: [{ step: 0, target_pct: 1, offered: 106, success: 105, failed: 1 }, { step: 1, target_pct: 10, offered: 943, success: 55, failed: 3 }]
+                    top_errors: [{ code: sha256_mismatch, count: 2 }, { code: boot_failed, count: 1 }]
+  /mfr/campaigns/{cid}/start:
+    post:
+      tags: [Firmware]
+      operationId: startCampaign
+      summary: Start a draft campaign (first step offers the update)
+      parameters:
+        - $ref: '#/components/parameters/Cid'
+      responses:
+        '200': { $ref: '#/components/responses/CampaignChanged' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /mfr/campaigns/{cid}/pause:
+    post:
+      tags: [Firmware]
+      operationId: pauseCampaign
+      summary: Pause offers (devices already updating finish)
+      parameters:
+        - $ref: '#/components/parameters/Cid'
+      responses:
+        '200': { $ref: '#/components/responses/CampaignChanged' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /mfr/campaigns/{cid}/resume:
+    post:
+      tags: [Firmware]
+      operationId: resumeCampaign
+      summary: Resume a paused campaign
+      parameters:
+        - $ref: '#/components/parameters/Cid'
+      responses:
+        '200': { $ref: '#/components/responses/CampaignChanged' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /mfr/campaigns/{cid}/advance:
+    post:
+      tags: [Firmware]
+      operationId: advanceCampaign
+      summary: Move to the next step now
+      parameters:
+        - $ref: '#/components/parameters/Cid'
+      responses:
+        '200': { $ref: '#/components/responses/CampaignChanged' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /mfr/analytics/metrics:
+    get:
+      tags: [Analytics]
+      operationId: getAnalyticsMetric
+      summary: One metric over time
+      description: |
+        Aggregates of an AnalyticsMsg metric across the fleet of one hardware type. Buckets with fewer than 5
+        reporting devices are left out and counted in `suppressed_buckets`, so no single home can be singled out.
+        Data is kept 90 days at hourly and 2 years at daily resolution.
+      parameters:
+        - { name: hw_type_id, in: query, required: true, schema: { $ref: '../schemas/common.json#/$defs/Uuid' } }
+        - { name: metric, in: query, required: true, schema: { $ref: '#/components/schemas/MetricName' } }
+        - { name: fw_version, in: query, schema: { $ref: '../schemas/common.json#/$defs/Semver' } }
+        - { name: from, in: query, required: true, schema: { $ref: '../schemas/common.json#/$defs/Timestamp' } }
+        - { name: to, in: query, required: true, schema: { $ref: '../schemas/common.json#/$defs/Timestamp' } }
+        - { name: resolution, in: query, schema: { enum: [hour, day], default: hour } }
+      responses:
+        '200':
+          description: Time series
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricSeries' }
+              examples:
+                rssi:
+                  value:
+                    hw_type_id: 01928f3e-5a7b-7c00-8d00-0000000000a1
+                    metric: rssi_dbm
+                    resolution: hour
+                    points:
+                      - { t: '2026-10-23T08:00:00Z', devices: 9120, avg: -63.1, p50: -62, p95: -78, min: -91, max: -31 }
+                      - { t: '2026-10-23T09:00:00Z', devices: 9204, avg: -62.8, p50: -62, p95: -77, min: -90, max: -30 }
+                    suppressed_buckets: 0
+        '400': { $ref: '#/components/responses/Problem' }
+  /mfr/analytics/resets:
+    get:
+      tags: [Analytics]
+      operationId: getAnalyticsResets
+      summary: Restart and crash statistics
+      description: Restarts by reason and firmware version, and the most frequent crash codes (from reset_reason and crash in AnalyticsMsg).
+      parameters:
+        - { name: hw_type_id, in: query, required: true, schema: { $ref: '../schemas/common.json#/$defs/Uuid' } }
+        - { name: from, in: query, required: true, schema: { $ref: '../schemas/common.json#/$defs/Timestamp' } }
+        - { name: to, in: query, required: true, schema: { $ref: '../schemas/common.json#/$defs/Timestamp' } }
+      responses:
+        '200':
+          description: Restart statistics
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResetStats' }
+              examples:
+                week:
+                  value:
+                    hw_type_id: 01928f3e-5a7b-7c00-8d00-0000000000a1
+                    devices_reporting: 10204
+                    by_reason: { power_on: 3120, ota: 9450, software: 210, watchdog: 18, panic: 42, brownout: 7 }
+                    by_fw_version:
+                      - { fw: 1.4.2, boots: 12500, by_reason: { power_on: 2900, ota: 9450, panic: 40, watchdog: 12 } }
+                    top_crashes:
+                      - { code: load_prohibited, fw: 1.4.2, count: 31, devices: 22 }
+  /mfr/webhooks:
+    get:
+      tags: [Webhooks]
+      operationId: listWebhooks
+      summary: List webhook endpoints
+      responses:
+        '200':
+          description: Endpoints
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                additionalProperties: false
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/WebhookEndpoint' } }
+                  next_cursor: { type: [string, 'null'] }
+              examples:
+                page: { value: { items: [{ id: 01929d00-0000-7000-8000-0000000000e1, url: 'https://hooks.acme.example/lumio', event_types: [device.claimed], enabled: false, disabled_reason: failing, secret_hint: whsec_…mVvb, created_at: '2026-10-23T09:00:00Z' }], next_cursor: null } }
+    post:
+      tags: [Webhooks]
+      operationId: createWebhook
+      summary: Add a webhook endpoint
+      description: Role mfr_admin or mfr_developer. HTTPS only, at most 10 endpoints. The signing secret is returned once.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url, event_types]
+              additionalProperties: false
+              properties:
+                url: { type: string, format: uri, pattern: '^https://', maxLength: 2048 }
+                event_types: { type: array, minItems: 1, uniqueItems: true, items: { $ref: '../schemas/webhooks/event.json#/$defs/EventType' } }
+                description: { type: string, maxLength: 200 }
+            examples:
+              ops: { value: { url: 'https://hooks.acme.example/lumio', event_types: [device.claimed, campaign.status_changed, ota.job_failed], description: Ops alerts } }
+      responses:
+        '201':
+          description: Created; secret shown only here
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookEndpointCreated' }
+              examples:
+                created:
+                  value:
+                    id: 01929d00-0000-7000-8000-0000000000e1
+                    url: 'https://hooks.acme.example/lumio'
+                    event_types: [device.claimed, campaign.status_changed, ota.job_failed]
+                    description: Ops alerts
+                    enabled: true
+                    disabled_reason: null
+                    secret_hint: whsec_…mVvb
+                    created_at: '2026-10-23T09:00:00Z'
+                    secret: whsec_dGVzdCB3ZWJob29rIHNlY3JldCBudW1iZXIgb25l
+        '400': { $ref: '#/components/responses/Problem' }
+        '409': { $ref: '#/components/responses/Problem' }
+  /mfr/webhooks/{wid}:
+    parameters:
+      - $ref: '#/components/parameters/Wid'
+    get:
+      tags: [Webhooks]
+      operationId: getWebhook
+      summary: Get a webhook endpoint
+      responses:
+        '200':
+          description: Endpoint
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookEndpoint' }
+              examples:
+                endpoint: { $ref: '#/components/examples/WebhookEndpoint' }
+    patch:
+      tags: [Webhooks]
+      operationId: updateWebhook
+      summary: Change URL, event types or enable/disable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              additionalProperties: false
+              properties:
+                url: { type: string, format: uri, pattern: '^https://', maxLength: 2048 }
+                event_types: { type: array, minItems: 1, uniqueItems: true, items: { $ref: '../schemas/webhooks/event.json#/$defs/EventType' } }
+                description: { type: string, maxLength: 200 }
+                enabled: { type: boolean }
+            examples:
+              reenable: { value: { enabled: true } }
+      responses:
+        '200':
+          description: Endpoint
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookEndpoint' }
+              examples:
+                endpoint: { $ref: '#/components/examples/WebhookEndpoint' }
+    delete:
+      tags: [Webhooks]
+      operationId: deleteWebhook
+      summary: Delete a webhook endpoint
+      responses:
+        '204': { description: Deleted }
+  /mfr/webhooks/{wid}/rotate-secret:
+    post:
+      tags: [Webhooks]
+      operationId: rotateWebhookSecret
+      summary: New signing secret
+      description: Deliveries are signed with both secrets (two v1 values) for 24 hours, then only with the new one.
+      parameters:
+        - $ref: '#/components/parameters/Wid'
+      responses:
+        '200':
+          description: New secret, shown only here
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [secret, previous_secret_expires_at]
+                additionalProperties: false
+                properties:
+                  secret: { $ref: '#/components/schemas/WebhookSecret' }
+                  previous_secret_expires_at: { $ref: '../schemas/common.json#/$defs/Timestamp' }
+              examples:
+                rotated: { value: { secret: whsec_dGVzdCB3ZWJob29rIHNlY3JldCBudW1iZXIgdHdv, previous_secret_expires_at: '2026-10-24T09:00:00Z' } }
+  /mfr/webhooks/{wid}/test:
+    post:
+      tags: [Webhooks]
+      operationId: testWebhook
+      summary: Send a webhook.test event now
+      parameters:
+        - $ref: '#/components/parameters/Wid'
+      responses:
+        '202':
+          description: Queued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [delivery_id]
+                additionalProperties: false
+                properties:
+                  delivery_id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+              examples:
+                queued: { value: { delivery_id: 01929d10-0000-7000-8000-000000000001 } }
+  /mfr/webhooks/{wid}/deliveries:
+    get:
+      tags: [Webhooks]
+      operationId: listWebhookDeliveries
+      summary: Recent delivery attempts (30 days)
+      parameters:
+        - $ref: '#/components/parameters/Wid'
+        - { name: status, in: query, schema: { enum: [pending, succeeded, failed] } }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Page of deliveries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                additionalProperties: false
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/WebhookDelivery' } }
+                  next_cursor: { type: [string, 'null'] }
+              examples:
+                page:
+                  value:
+                    items:
+                      - { id: 01929d10-0000-7000-8000-000000000002, event_id: 01929a10-0000-7000-8000-000000000004, event_type: ota.job_failed, attempt: 2, status: pending, response_status: 503, error: null, next_attempt_at: '2026-10-23T10:31:00Z', at: '2026-10-23T10:06:00Z' }
+                    next_cursor: null
+components:
+  securitySchemes:
+    mfrBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Manufacturer portal access token.
+    mfrKeySignature:
+      type: apiKey
+      in: header
+      name: X-Lumio-Key
+      description: API key id; the request also needs X-Lumio-Timestamp and X-Lumio-Signature (see the API description).
+  parameters:
+    IdempotencyKey: { name: Idempotency-Key, in: header, schema: { type: string, format: uuid } }
+    Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+    Cursor: { name: cursor, in: query, schema: { type: string, maxLength: 512 } }
+    Id: { name: id, in: path, required: true, schema: { $ref: '../schemas/common.json#/$defs/Uuid' } }
+    Fid: { name: fid, in: path, required: true, schema: { $ref: '../schemas/common.json#/$defs/Uuid' } }
+    Cid: { name: cid, in: path, required: true, schema: { $ref: '../schemas/common.json#/$defs/Uuid' } }
+    Wid: { name: wid, in: path, required: true, schema: { $ref: '../schemas/common.json#/$defs/Uuid' } }
+  responses:
+    CampaignChanged:
+      description: Campaign after the change
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Campaign' }
+          examples:
+            running: { $ref: '#/components/examples/Campaign' }
+    Problem:
+      description: Error (RFC 9457)
+      content:
+        application/problem+json:
+          schema: { $ref: '../schemas/common.json#/$defs/Problem' }
+          examples:
+            invalid:
+              value: { type: 'https://docs.lumio.io/errors/validation_failed', title: Validation failed, status: 400, code: validation_failed, errors: [{ path: /serial, code: pattern, message: 'must be 8-32 letters or digits' }], request_id: 01JB2Y6Q5H7ZK }
+  schemas:
+    ProvisionReq:
+      description: Exactly one of csr_pem (X.509, preferred) or psk.
+      type: object
+      required: [hw_type_id, serial]
+      additionalProperties: false
+      properties:
+        hw_type_id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+        serial: { $ref: '../schemas/common.json#/$defs/Serial' }
+        mac: { $ref: '../schemas/common.json#/$defs/Mac' }
+        csr_pem: { type: string, minLength: 1, maxLength: 8192, description: PKCS#10 CSR in PEM. }
+        psk: { type: string, minLength: 32, maxLength: 128, pattern: '^[A-Za-z0-9_-]+$', description: 'Pre-shared key (at least 128 bits of entropy, e.g. 32 hex characters).' }
+        pairing_pubkey:
+          $ref: '../schemas/common.json#/$defs/Base64'
+          description: 'P-256 public key (uncompressed, 65 bytes) the device uses for pairing over BLE or Wi-Fi setup mode; required when the HW type has one of those methods. A separate key from the TLS key.'
+      oneOf:
+        - required: [csr_pem]
+        - required: [psk]
+    ProvisionRes:
+      type: object
+      required: [did, claim_secret, qr_payload]
+      additionalProperties: false
+      properties:
+        did: { $ref: '../schemas/common.json#/$defs/Did' }
+        cert_pem: { type: string, description: Device certificate (X.509 units). }
+        ca_chain_pem: { type: string, description: 'Intermediate + root CA, also the broker trust anchor.' }
+        cert_not_after: { $ref: '../schemas/common.json#/$defs/Timestamp' }
+        claim_secret: { type: string, pattern: '^[a-z2-7]{26}$', description: Returned only once; only its hash is stored. }
+        qr_payload: { $ref: '../schemas/provisioning/claim-uri.json' }
+    HwTypeReq:
+      type: object
+      required: [model_code, name, category, capabilities, provisioning_methods, fw_signing_pubkey]
+      additionalProperties: false
+      properties:
+        model_code: { type: string, minLength: 1, maxLength: 32 }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        category: { enum: [sensor, actuator, mixed, gateway] }
+        capabilities: { $ref: '../schemas/capabilities.json' }
+        provisioning_methods: { type: array, minItems: 1, uniqueItems: true, items: { enum: [ble, wifi_ap, qr, gateway] } }
+        fw_signing_pubkey: { $ref: '../schemas/common.json#/$defs/Base64', description: Raw 32-byte Ed25519 public key that signs firmware manifests (base64). }
+        ui_hints:
+          type: object
+          additionalProperties: false
+          properties:
+            icon: { type: string }
+            primary_channel: { $ref: '../schemas/common.json#/$defs/ChannelName' }
+            card: { enum: [toggle, sensor, dimmer, thermostat] }
+        setup_instructions:
+          description: Pairing instructions shown in the app, by language (en, uk).
+          type: object
+          propertyNames: { pattern: '^[a-z]{2}$' }
+          additionalProperties: { type: string, maxLength: 4000 }
+    HwTypeUpdateReq:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        model_code: { type: string, minLength: 1, maxLength: 32 }
+        name: { type: string, minLength: 1, maxLength: 100 }
+        category: { enum: [sensor, actuator, mixed, gateway] }
+        capabilities: { $ref: '../schemas/capabilities.json' }
+        provisioning_methods: { type: array, minItems: 1, uniqueItems: true, items: { enum: [ble, wifi_ap, qr, gateway] } }
+        fw_signing_pubkey: { $ref: '../schemas/common.json#/$defs/Base64' }
+        ui_hints: { $ref: '#/components/schemas/HwTypeReq/properties/ui_hints' }
+        setup_instructions: { $ref: '#/components/schemas/HwTypeReq/properties/setup_instructions' }
+    HwType:
+      type: object
+      required: [id, status, images, review_note, created_at, model_code, name, category, capabilities, provisioning_methods, fw_signing_pubkey]
+      additionalProperties: false
+      properties:
+        id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+        status: { enum: [draft, in_review, approved, rejected, retired] }
+        images: { type: array, items: { type: string, format: uri } }
+        review_note: { type: [string, 'null'] }
+        created_at: { $ref: '../schemas/common.json#/$defs/Timestamp' }
+        model_code: { type: string }
+        name: { type: string }
+        category: { enum: [sensor, actuator, mixed, gateway] }
+        capabilities: { $ref: '../schemas/capabilities.json' }
+        provisioning_methods: { type: array, items: { enum: [ble, wifi_ap, qr, gateway] } }
+        fw_signing_pubkey: { $ref: '../schemas/common.json#/$defs/Base64' }
+        ui_hints: { $ref: '#/components/schemas/HwTypeReq/properties/ui_hints' }
+        setup_instructions: { $ref: '#/components/schemas/HwTypeReq/properties/setup_instructions' }
+    HwTypePage:
+      type: object
+      required: [items, next_cursor]
+      additionalProperties: false
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HwType' } }
+        next_cursor: { type: [string, 'null'] }
+    TestDevice:
+      type: object
+      required: [device_id, did, marked_at]
+      additionalProperties: false
+      properties:
+        device_id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+        did: { $ref: '../schemas/common.json#/$defs/Did' }
+        marked_at: { $ref: '../schemas/common.json#/$defs/Timestamp' }
+    FirmwareImage:
+      type: object
+      required: [id, hw_type_id, version, size_bytes, sha256, status, mandatory, release_notes, created_at]
+      additionalProperties: false
+      properties:
+        id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+        hw_type_id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+        version: { $ref: '../schemas/common.json#/$defs/Semver' }
+        size_bytes: { type: integer, minimum: 1 }
+        sha256: { $ref: '../schemas/common.json#/$defs/Sha256Hex' }
+        status: { enum: [uploaded, verified, rejected, withdrawn] }
+        mandatory: { type: boolean }
+        release_notes: { type: string }
+        created_at: { $ref: '../schemas/common.json#/$defs/Timestamp' }
+    TargetFilter:
+      type: object
+      additionalProperties: false
+      properties:
+        from_versions: { type: array, items: { $ref: '../schemas/common.json#/$defs/Semver' } }
+        countries: { type: array, items: { type: string, pattern: '^[A-Z]{2}$' } }
+        device_ids: { type: array, items: { $ref: '../schemas/common.json#/$defs/Uuid' } }
+    Campaign:
+      type: object
+      required: [id, firmware_id, channel, target_filter, steps, current_step, failure_threshold_pct, status, pause_reason, created_at]
+      additionalProperties: false
+      properties:
+        id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+        firmware_id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+        channel: { enum: [beta, stable] }
+        target_filter: { $ref: '#/components/schemas/TargetFilter' }
+        steps: { type: array, items: { type: integer } }
+        current_step: { type: integer, minimum: 0 }
+        failure_threshold_pct: { type: number }
+        status: { enum: [draft, running, paused, halted, completed] }
+        pause_reason: { type: [string, 'null'] }
+        created_at: { $ref: '../schemas/common.json#/$defs/Timestamp' }
+    CampaignDetail:
+      type: object
+      required: [id, firmware_id, channel, target_filter, steps, current_step, failure_threshold_pct, status, pause_reason, created_at, counts, failure_rate_pct, step_stats, top_errors]
+      additionalProperties: false
+      properties:
+        id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+        firmware_id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+        channel: { enum: [beta, stable] }
+        target_filter: { $ref: '#/components/schemas/TargetFilter' }
+        steps: { type: array, items: { type: integer } }
+        current_step: { type: integer, minimum: 0 }
+        failure_threshold_pct: { type: number }
+        status: { enum: [draft, running, paused, halted, completed] }
+        pause_reason: { type: [string, 'null'] }
+        created_at: { $ref: '../schemas/common.json#/$defs/Timestamp' }
+        counts:
+          type: object
+          propertyNames: { enum: [pending, offered, deferred, downloading, verified, installing, success, failed, rolled_back, canceled] }
+          additionalProperties: { type: integer, minimum: 0 }
+        failure_rate_pct: { type: number, minimum: 0, maximum: 100 }
+        step_stats:
+          type: array
+          items:
+            type: object
+            required: [step, target_pct, offered, success, failed]
+            additionalProperties: false
+            properties:
+              step: { type: integer, minimum: 0 }
+              target_pct: { type: integer }
+              offered: { type: integer, minimum: 0 }
+              success: { type: integer, minimum: 0 }
+              failed: { type: integer, minimum: 0 }
+        top_errors:
+          type: array
+          items:
+            type: object
+            required: [code, count]
+            additionalProperties: false
+            properties:
+              code: { type: string }
+              count: { type: integer, minimum: 1 }
+    MetricName:
+      description: A standard AnalyticsMsg metric or an x_ custom metric.
+      anyOf:
+        - enum: [heap_free_b, heap_min_free_b, rssi_dbm, wifi_reconnects, mqtt_reconnects, publish_failures, cmd_latency_ms, cpu_temp_c, battery_mv, battery_pct, flash_writes, relay_cycles, uptime_s]
+        - { type: string, pattern: '^x_[a-z0-9_]{1,46}$' }
+    MetricSeries:
+      type: object
+      required: [hw_type_id, metric, resolution, points, suppressed_buckets]
+      additionalProperties: false
+      properties:
+        hw_type_id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+        metric: { $ref: '#/components/schemas/MetricName' }
+        fw_version: { $ref: '../schemas/common.json#/$defs/Semver' }
+        resolution: { enum: [hour, day] }
+        points:
+          type: array
+          items:
+            type: object
+            required: [t, devices, avg, p50, p95, min, max]
+            additionalProperties: false
+            properties:
+              t: { $ref: '../schemas/common.json#/$defs/Timestamp' }
+              devices: { type: integer, minimum: 5 }
+              avg: { type: number }
+              p50: { type: number }
+              p95: { type: number }
+              min: { type: number }
+              max: { type: number }
+        suppressed_buckets: { type: integer, minimum: 0 }
+    ResetReasonCounts:
+      type: object
+      propertyNames: { $ref: '../schemas/mqtt/analytics.json#/properties/reset_reason' }
+      additionalProperties: { type: integer, minimum: 0 }
+    ResetStats:
+      type: object
+      required: [hw_type_id, devices_reporting, by_reason, by_fw_version, top_crashes]
+      additionalProperties: false
+      properties:
+        hw_type_id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+        devices_reporting: { type: integer, minimum: 0 }
+        by_reason: { $ref: '#/components/schemas/ResetReasonCounts' }
+        by_fw_version:
+          type: array
+          items:
+            type: object
+            required: [fw, boots, by_reason]
+            additionalProperties: false
+            properties:
+              fw: { $ref: '../schemas/common.json#/$defs/Semver' }
+              boots: { type: integer, minimum: 0 }
+              by_reason: { $ref: '#/components/schemas/ResetReasonCounts' }
+        top_crashes:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            required: [code, fw, count, devices]
+            additionalProperties: false
+            properties:
+              code: { $ref: '../schemas/common.json#/$defs/CodeName' }
+              fw: { $ref: '../schemas/common.json#/$defs/Semver' }
+              count: { type: integer, minimum: 1 }
+              devices: { type: integer, minimum: 5 }
+    WebhookSecret:
+      type: string
+      pattern: '^whsec_[A-Za-z0-9_-]{32,64}$'
+    WebhookEndpoint:
+      type: object
+      required: [id, url, event_types, enabled, disabled_reason, secret_hint, created_at]
+      additionalProperties: false
+      properties:
+        id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+        url: { type: string, format: uri }
+        event_types: { type: array, items: { $ref: '../schemas/webhooks/event.json#/$defs/EventType' } }
+        description: { type: string }
+        enabled: { type: boolean }
+        disabled_reason: { enum: [manual, failing, null], description: 'failing: every delivery failed for 3 days; re-enable after fixing the endpoint.' }
+        secret_hint: { type: string, description: Last characters of the current secret. }
+        created_at: { $ref: '../schemas/common.json#/$defs/Timestamp' }
+    WebhookEndpointCreated:
+      type: object
+      required: [id, url, event_types, enabled, disabled_reason, secret_hint, created_at, secret]
+      additionalProperties: false
+      properties:
+        id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+        url: { type: string, format: uri }
+        event_types: { type: array, items: { $ref: '../schemas/webhooks/event.json#/$defs/EventType' } }
+        description: { type: string }
+        enabled: { type: boolean }
+        disabled_reason: { enum: [manual, failing, null] }
+        secret_hint: { type: string }
+        created_at: { $ref: '../schemas/common.json#/$defs/Timestamp' }
+        secret: { $ref: '#/components/schemas/WebhookSecret' }
+    WebhookDelivery:
+      type: object
+      required: [id, event_id, event_type, attempt, status, response_status, error, next_attempt_at, at]
+      additionalProperties: false
+      properties:
+        id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+        event_id: { $ref: '../schemas/common.json#/$defs/Uuid' }
+        event_type: { $ref: '../schemas/webhooks/event.json#/$defs/EventType' }
+        attempt: { type: integer, minimum: 1 }
+        status: { enum: [pending, succeeded, failed] }
+        response_status: { type: [integer, 'null'] }
+        error: { enum: [timeout, connection_failed, tls_failed, null] }
+        next_attempt_at: { oneOf: [{ $ref: '../schemas/common.json#/$defs/Timestamp' }, { type: 'null' }] }
+        at: { $ref: '../schemas/common.json#/$defs/Timestamp' }
+  examples:
+    HwTypeReq:
+      value:
+        model_code: P2
+        name: Smart Plug P2
+        category: actuator
+        capabilities:
+          channels:
+            - { channel: switch_1, capability: switch, role: actuator }
+            - { channel: power, capability: power_meter, role: sensor, unit: W, report_interval_s: 60 }
+            - { channel: energy, capability: energy, role: sensor, unit: kWh, report_interval_s: 300 }
+        provisioning_methods: [ble, qr]
+        fw_signing_pubkey: eN0vIzHLV6wfvNjg5vkKfi+xzF0D89en3P2CzqjptvQ=
+        ui_hints: { icon: plug, primary_channel: switch_1, card: toggle }
+        setup_instructions: { en: 'Plug it in and hold the button for 5 seconds until the light blinks blue.', uk: 'Увімкніть у розетку й утримуйте кнопку 5 секунд, доки індикатор не заблимає синім.' }
+    HwType:
+      value:
+        id: 01928f3e-5a7b-7c00-8d00-0000000000a1
+        status: draft
+        images: []
+        review_note: null
+        created_at: '2026-10-20T08:00:00Z'
+        model_code: P2
+        name: Smart Plug P2
+        category: actuator
+        capabilities:
+          channels:
+            - { channel: switch_1, capability: switch, role: actuator }
+            - { channel: power, capability: power_meter, role: sensor, unit: W, report_interval_s: 60 }
+            - { channel: energy, capability: energy, role: sensor, unit: kWh, report_interval_s: 300 }
+        provisioning_methods: [ble, qr]
+        fw_signing_pubkey: eN0vIzHLV6wfvNjg5vkKfi+xzF0D89en3P2CzqjptvQ=
+        ui_hints: { icon: plug, primary_channel: switch_1, card: toggle }
+    FirmwareImage:
+      value:
+        id: 01929b00-0000-7000-8000-0000000000f0
+        hw_type_id: 01928f3e-5a7b-7c00-8d00-0000000000a1
+        version: 1.5.0
+        size_bytes: 1048576
+        sha256: d53dde0d595ea480e1fc8a5d8ed9f93205dc0d6d7d3beaefd91bdb9ffc80eda6
+        status: verified
+        mandatory: false
+        release_notes: Faster reconnect after router restarts.
+        created_at: '2026-10-20T09:30:00Z'
+    Campaign:
+      value:
+        id: 01929b00-0000-7000-8000-0000000000c1
+        firmware_id: 01929b00-0000-7000-8000-0000000000f0
+        channel: stable
+        target_filter: { from_versions: [1.4.1, 1.4.2], countries: [UA] }
+        steps: [1, 10, 50, 100]
+        current_step: 0
+        failure_threshold_pct: 2
+        status: draft
+        pause_reason: null
+        created_at: '2026-10-22T08:00:00Z'
+    WebhookEndpoint:
+      value:
+        id: 01929d00-0000-7000-8000-0000000000e1
+        url: 'https://hooks.acme.example/lumio'
+        event_types: [device.claimed, campaign.status_changed, ota.job_failed]
+        description: Ops alerts
+        enabled: true
+        disabled_reason: null
+        secret_hint: whsec_…mVvb
+        created_at: '2026-10-23T09:00:00Z'

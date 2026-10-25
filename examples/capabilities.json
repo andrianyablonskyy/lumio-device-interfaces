@@ -1,0 +1,50 @@
+{
+  "channels": [
+    {
+      "channel": "switch_1",
+      "capability": "switch",
+      "role": "actuator"
+    },
+    {
+      "channel": "brightness",
+      "capability": "dimmer",
+      "role": "actuator",
+      "unit": "%",
+      "range": {
+        "min": 1,
+        "max": 100,
+        "step": 1
+      }
+    },
+    {
+      "channel": "power",
+      "capability": "power_meter",
+      "role": "sensor",
+      "unit": "W",
+      "report_interval_s": 60
+    },
+    {
+      "channel": "energy",
+      "capability": "energy",
+      "role": "sensor",
+      "unit": "kWh",
+      "report_interval_s": 300
+    },
+    {
+      "channel": "button_1",
+      "capability": "button",
+      "role": "sensor",
+      "events": [
+        "single",
+        "double",
+        "long"
+      ]
+    },
+    {
+      "channel": "voltage",
+      "capability": "x_voltage",
+      "role": "sensor",
+      "unit": "V"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "version": 5,
+  "state": {
+    "join_mode": 120,
+    "join_token": "ct_Z2F0ZXdheSBqb2luIHRva2Vu"
+  },
+  "issued_by": "user",
+  "ttl_s": 120
+}

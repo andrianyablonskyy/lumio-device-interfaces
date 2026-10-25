@@ -1,0 +1,35 @@
+{
+  "description": "Provisioning blob encrypted to the device key, and its BLE frames for a 23-byte ATT MTU (20-byte writes) (docs/04-pairing.md).",
+  "note": "Test keys derived from public strings. Never use them in products.",
+  "did": "acme-P2A1B2C3D4",
+  "device_private_key_hex": "ab3f31bcc3406659706f1395a4ccc44acbe42f253cf596741370be76ea1684bf",
+  "device_public_key_base64": "BCt/xcVi9mEY/OKTUE96LstdCgi/0hdY1iovgSwWNZC4fQe1ANMYMhluBo9xOnzayrluuXrR/0VHgV8oIcxXGCQ=",
+  "app_ephemeral_private_key_hex": "c27fe88ff5a49a334b1b19362df597338569199e7af2e23813060a9fe2437b8d",
+  "nonce_hex": "f25d50f9dbf24d37b03656d9",
+  "payload": {
+    "v": 1,
+    "ssid": "Home WiFi",
+    "password": "correct horse battery staple",
+    "claim_token": "ct_Zm9yIHRlc3RzIG9ubHkgMTIz",
+    "mqtt_host": "mqtt.eu.lumio.io",
+    "tz": "Europe/Kyiv"
+  },
+  "plaintext": "{\"v\":1,\"ssid\":\"Home WiFi\",\"password\":\"correct horse battery staple\",\"claim_token\":\"ct_Zm9yIHRlc3RzIG9ubHkgMTIz\",\"mqtt_host\":\"mqtt.eu.lumio.io\",\"tz\":\"Europe/Kyiv\"}",
+  "blob_hex": "010469e350ed9c04e28ada6ee12449444fa0b22eba7472e265347e78c4a82a5246858bd21d466f7c3d4a1dfd1dee68d2747be6a9c94fb83595d1c0013976c4310be4f25d50f9dbf24d37b03656d9dbd614fedf4a65e50e546e1e22e146e91928f0caf0da75788d6c1d643eafdf485875f279db29a6cf225f6f648687b6898dab2863f168c5734e0e93e8e16fed0eb5b3578d2debcb81b36bfae5f9e40ad8f5d4e4eddb0068b4a197be61c41969fae8f6843158f706f2668f285e939117270f74c913231278d6984ff9fcc75e94111117d8515656c2e29374464cf55c9ca7912b48dc48b8e91020410402664a3e321ed8d941d7797cb03923438458dd7c617d9b",
+  "ble_frames_hex": [
+    "00010469e350ed9c04e28ada6ee12449444fa0b2",
+    "012eba7472e265347e78c4a82a5246858bd21d46",
+    "026f7c3d4a1dfd1dee68d2747be6a9c94fb83595",
+    "03d1c0013976c4310be4f25d50f9dbf24d37b036",
+    "0456d9dbd614fedf4a65e50e546e1e22e146e919",
+    "0528f0caf0da75788d6c1d643eafdf485875f279",
+    "06db29a6cf225f6f648687b6898dab2863f168c5",
+    "07734e0e93e8e16fed0eb5b3578d2debcb81b36b",
+    "08fae5f9e40ad8f5d4e4eddb0068b4a197be61c4",
+    "091969fae8f6843158f706f2668f285e93911727",
+    "0a0f74c913231278d6984ff9fcc75e94111117d8",
+    "0b515656c2e29374464cf55c9ca7912b48dc48b8",
+    "0ce91020410402664a3e321ed8d941d7797cb039",
+    "8d23438458dd7c617d9b"
+  ]
+}

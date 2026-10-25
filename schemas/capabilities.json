@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/capabilities.json",
+  "title": "CapabilitySchema",
+  "description": "What a hardware type can do: its channels. Registered with the HW type (manufacturer API) and, optionally, reported by the device in its claim message.",
+  "type": "object",
+  "required": ["channels"],
+  "additionalProperties": false,
+  "properties": {
+    "channels": { "type": "array", "minItems": 1, "maxItems": 64, "items": { "$ref": "#/$defs/ChannelSpec" } }
+  },
+  "$defs": {
+    "CapabilityKey": {
+      "description": "Catalogue capability. Actuators: switch, dimmer, rgb_light, color_temp, cover, thermostat, valve, lock. Sensors: temperature, humidity, motion, contact, water_leak, smoke, co2, illuminance, power_meter, energy, battery, button.",
+      "enum": [
+        "switch", "dimmer", "rgb_light", "color_temp", "cover", "thermostat", "valve", "lock",
+        "temperature", "humidity", "motion", "contact", "water_leak", "smoke", "co2",
+        "illuminance", "power_meter", "energy", "battery", "button"
+      ]
+    },
+    "CustomCapability": {
+      "description": "Manufacturer-specific capability; always prefixed with 'x_'. The app shows it as a generic value.",
+      "type": "string",
+      "pattern": "^x_[a-z0-9_]+$"
+    },
+    "ChannelSpec": {
+      "type": "object",
+      "required": ["channel", "capability", "role"],
+      "additionalProperties": false,
+      "properties": {
+        "channel": { "$ref": "common.json#/$defs/ChannelName" },
+        "capability": { "anyOf": [{ "$ref": "#/$defs/CapabilityKey" }, { "$ref": "#/$defs/CustomCapability" }] },
+        "role": { "enum": ["sensor", "actuator"] },
+        "unit": { "description": "Display unit, e.g. '°C', 'W', 'kWh', '%'.", "type": "string", "maxLength": 16 },
+        "range": {
+          "type": "object",
+          "required": ["min", "max"],
+          "additionalProperties": false,
+          "properties": {
+            "min": { "type": "number" },
+            "max": { "type": "number" },
+            "step": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        "enum": { "description": "Allowed string values, e.g. cover: open, closed, stopped.", "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "events": { "description": "Event types this channel emits, e.g. button: single, double, long.", "type": "array", "minItems": 1, "items": { "$ref": "common.json#/$defs/CodeName" } },
+        "report_interval_s": { "description": "Expected maximum gap between telemetry reports.", "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

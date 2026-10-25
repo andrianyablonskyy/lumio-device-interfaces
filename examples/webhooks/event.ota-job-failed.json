@@ -1,0 +1,14 @@
+{
+  "id": "01929a10-0000-7000-8000-000000000004",
+  "type": "ota.job_failed",
+  "at": "2026-10-23T10:01:00Z",
+  "manufacturer_id": "01928f00-0000-7000-8000-00000000acde",
+  "data": {
+    "job_id": "01929b10-4c2d-7e00-9a00-0000000000f1",
+    "did": "acme-P2A1B2C3D4",
+    "firmware_id": "01929b00-0000-7000-8000-0000000000f0",
+    "campaign_id": "01929b00-0000-7000-8000-0000000000c1",
+    "state": "rolled_back",
+    "error_code": "boot_failed"
+  }
+}

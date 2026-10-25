@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/provisioning/provision-status.json",
+  "title": "ProvisionStatus",
+  "description": "Pairing progress the device reports to the app: BLE 'status' characteristic (notify) or GET http://192.168.4.1/status.",
+  "type": "object",
+  "required": ["v", "state"],
+  "additionalProperties": false,
+  "properties": {
+    "v": { "$ref": "../common.json#/$defs/ProtocolVersion" },
+    "state": { "enum": ["idle", "received", "wifi_connecting", "cloud_connecting", "claiming", "claimed", "failed"] },
+    "error": {
+      "description": "Why provisioning failed (state failed).",
+      "enum": [
+        "payload_invalid", "decrypt_failed", "wifi_not_found", "wifi_auth_failed", "dhcp_failed", "dns_failed",
+        "time_sync_failed", "tls_failed", "mqtt_refused", "claim_timeout", "claim_rejected"
+      ]
+    },
+    "claim_reason": { "$ref": "../mqtt/claim-result.json#/properties/reason", "description": "ClaimResultMsg.reason when error is claim_rejected." }
+  },
+  "if": { "properties": { "state": { "const": "failed" } } },
+  "then": { "required": ["error"] }
+}

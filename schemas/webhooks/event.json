@@ -1,0 +1,476 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/webhooks/event.json",
+  "title": "WebhookEvent",
+  "description": "Body of every webhook delivery to a manufacturer endpoint (POST, application/json). Events describe the manufacturer's own fleet and never carry user or household data.",
+  "type": "object",
+  "required": [
+    "id",
+    "type",
+    "at",
+    "manufacturer_id",
+    "data"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "../common.json#/$defs/Uuid",
+      "description": "Event id; the same event can be delivered more than once, de-duplicate by it."
+    },
+    "type": {
+      "$ref": "#/$defs/EventType"
+    },
+    "at": {
+      "$ref": "../common.json#/$defs/Timestamp"
+    },
+    "manufacturer_id": {
+      "$ref": "../common.json#/$defs/Uuid"
+    },
+    "data": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "type": {
+          "const": "device.provisioned"
+        },
+        "data": {
+          "$ref": "#/$defs/DeviceProvisioned"
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "device.revoked"
+        },
+        "data": {
+          "$ref": "#/$defs/DeviceRef"
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "device.claimed"
+        },
+        "data": {
+          "$ref": "#/$defs/DeviceClaimed"
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "device.unclaimed"
+        },
+        "data": {
+          "$ref": "#/$defs/DeviceRef"
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "hw_type.reviewed"
+        },
+        "data": {
+          "$ref": "#/$defs/HwTypeReviewed"
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "firmware.verified"
+        },
+        "data": {
+          "$ref": "#/$defs/FirmwareRef"
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "firmware.rejected"
+        },
+        "data": {
+          "$ref": "#/$defs/FirmwareRejected"
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "campaign.status_changed"
+        },
+        "data": {
+          "$ref": "#/$defs/CampaignStatusChanged"
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "ota.job_failed"
+        },
+        "data": {
+          "$ref": "#/$defs/OtaJobFailed"
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "api_key.status_changed"
+        },
+        "data": {
+          "$ref": "#/$defs/ApiKeyStatusChanged"
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ]
+    },
+    {
+      "properties": {
+        "type": {
+          "const": "webhook.test"
+        },
+        "data": {
+          "type": "object",
+          "maxProperties": 0
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ]
+    }
+  ],
+  "$defs": {
+    "EventType": {
+      "enum": [
+        "device.provisioned",
+        "device.revoked",
+        "device.claimed",
+        "device.unclaimed",
+        "hw_type.reviewed",
+        "firmware.verified",
+        "firmware.rejected",
+        "campaign.status_changed",
+        "ota.job_failed",
+        "api_key.status_changed",
+        "webhook.test"
+      ]
+    },
+    "DeviceRef": {
+      "type": "object",
+      "required": [
+        "did",
+        "hw_type_id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "did": {
+          "$ref": "../common.json#/$defs/Did"
+        },
+        "hw_type_id": {
+          "$ref": "../common.json#/$defs/Uuid"
+        }
+      }
+    },
+    "DeviceProvisioned": {
+      "type": "object",
+      "required": [
+        "did",
+        "hw_type_id",
+        "serial",
+        "auth_kind",
+        "key_id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "did": {
+          "$ref": "../common.json#/$defs/Did"
+        },
+        "hw_type_id": {
+          "$ref": "../common.json#/$defs/Uuid"
+        },
+        "serial": {
+          "$ref": "../common.json#/$defs/Serial"
+        },
+        "auth_kind": {
+          "enum": [
+            "x509",
+            "psk"
+          ]
+        },
+        "key_id": {
+          "type": "string",
+          "pattern": "^lk_live_[a-z2-7]{16}$"
+        },
+        "cert_not_after": {
+          "$ref": "../common.json#/$defs/Timestamp"
+        }
+      }
+    },
+    "DeviceClaimed": {
+      "type": "object",
+      "required": [
+        "did",
+        "hw_type_id",
+        "method",
+        "fw"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "did": {
+          "$ref": "../common.json#/$defs/Did"
+        },
+        "hw_type_id": {
+          "$ref": "../common.json#/$defs/Uuid"
+        },
+        "method": {
+          "enum": [
+            "ble",
+            "wifi_ap",
+            "qr",
+            "gateway"
+          ]
+        },
+        "fw": {
+          "$ref": "../common.json#/$defs/Semver"
+        },
+        "country": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "Country of the cloud region the device joined, for activation statistics."
+        }
+      }
+    },
+    "HwTypeReviewed": {
+      "type": "object",
+      "required": [
+        "hw_type_id",
+        "model_code",
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "hw_type_id": {
+          "$ref": "../common.json#/$defs/Uuid"
+        },
+        "model_code": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "approved",
+            "rejected"
+          ]
+        },
+        "review_note": {
+          "type": "string"
+        }
+      }
+    },
+    "FirmwareRef": {
+      "type": "object",
+      "required": [
+        "firmware_id",
+        "hw_type_id",
+        "version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "firmware_id": {
+          "$ref": "../common.json#/$defs/Uuid"
+        },
+        "hw_type_id": {
+          "$ref": "../common.json#/$defs/Uuid"
+        },
+        "version": {
+          "$ref": "../common.json#/$defs/Semver"
+        }
+      }
+    },
+    "FirmwareRejected": {
+      "type": "object",
+      "required": [
+        "firmware_id",
+        "hw_type_id",
+        "version",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "firmware_id": {
+          "$ref": "../common.json#/$defs/Uuid"
+        },
+        "hw_type_id": {
+          "$ref": "../common.json#/$defs/Uuid"
+        },
+        "version": {
+          "$ref": "../common.json#/$defs/Semver"
+        },
+        "reason": {
+          "enum": [
+            "size_mismatch",
+            "sha256_mismatch",
+            "manifest_invalid",
+            "firmware_signature_invalid",
+            "version_exists"
+          ]
+        }
+      }
+    },
+    "CampaignStatusChanged": {
+      "type": "object",
+      "required": [
+        "campaign_id",
+        "firmware_id",
+        "status",
+        "current_step",
+        "failure_rate_pct"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "campaign_id": {
+          "$ref": "../common.json#/$defs/Uuid"
+        },
+        "firmware_id": {
+          "$ref": "../common.json#/$defs/Uuid"
+        },
+        "status": {
+          "enum": [
+            "running",
+            "paused",
+            "halted",
+            "completed"
+          ]
+        },
+        "current_step": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failure_rate_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "pause_reason": {
+          "enum": [
+            "manual",
+            "failure_threshold",
+            "platform_halt"
+          ]
+        }
+      }
+    },
+    "OtaJobFailed": {
+      "type": "object",
+      "required": [
+        "job_id",
+        "did",
+        "firmware_id",
+        "state",
+        "error_code"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "job_id": {
+          "$ref": "../common.json#/$defs/Uuid"
+        },
+        "did": {
+          "$ref": "../common.json#/$defs/Did"
+        },
+        "firmware_id": {
+          "$ref": "../common.json#/$defs/Uuid"
+        },
+        "campaign_id": {
+          "$ref": "../common.json#/$defs/Uuid"
+        },
+        "state": {
+          "enum": [
+            "failed",
+            "rolled_back"
+          ]
+        },
+        "error_code": {
+          "$ref": "../common.json#/$defs/CodeName"
+        }
+      }
+    },
+    "ApiKeyStatusChanged": {
+      "type": "object",
+      "required": [
+        "key_id",
+        "status",
+        "previous_status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "key_id": {
+          "type": "string",
+          "pattern": "^lk_live_[a-z2-7]{16}$"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "past_due",
+            "suspended",
+            "revoked"
+          ]
+        },
+        "previous_status": {
+          "enum": [
+            "active",
+            "past_due",
+            "suspended",
+            "revoked"
+          ]
+        }
+      }
+    }
+  }
+}

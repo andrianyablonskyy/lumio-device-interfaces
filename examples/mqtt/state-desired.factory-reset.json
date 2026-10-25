@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "version": 18,
+  "state": {
+    "factory_reset": true
+  },
+  "issued_by": "user",
+  "ttl_s": 86400
+}

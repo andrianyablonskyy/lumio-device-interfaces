@@ -1,0 +1,24 @@
+#!/bin/sh
+# Release tags (vX.Y.Z) are published only by lumio/bin/release.sh, after bin/test.sh and all required CI checks
+# passed (CLAUDE.md golden rule 9). Published tags are immutable: never delete or move them.
+# Identical copy in every Lumio repo; bin/test.sh checks that the copies match.
+zero=0000000000000000000000000000000000000000
+status=0
+while read -r _local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/tags/v*)
+      tag="${remote_ref#refs/tags/}"
+      if [ "$local_sha" = "$zero" ]; then
+        echo "pre-push: deleting release tag $tag is not allowed" >&2
+        status=1
+      elif [ "$remote_sha" != "$zero" ]; then
+        echo "pre-push: release tag $tag already exists on the remote and cannot be moved" >&2
+        status=1
+      elif [ "${LUMIO_RELEASE:-}" != 1 ]; then
+        echo "pre-push: release tags are published by lumio/bin/release.sh (it runs every regression test first)" >&2
+        status=1
+      fi
+      ;;
+  esac
+done
+exit "$status"

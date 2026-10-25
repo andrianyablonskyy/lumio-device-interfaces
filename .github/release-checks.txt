@@ -1,0 +1,5 @@
+# Checks that must succeed on a commit before it can be released (bin/release.sh waits, the release guard verifies).
+# Job names from .github/workflows/ci.yml, plus lumio/regression: posted by lumio's Regression workflow after bin/test.sh.
+Code style (eslint) + types
+Interface + data structure regression (schemas, specs, test vectors)
+lumio/regression

@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/common.json",
+  "title": "Common",
+  "description": "Identifiers and value formats shared by every Lumio device interface.",
+  "$defs": {
+    "Uuid": {
+      "description": "Lowercase UUID (Lumio row ids are UUIDv7).",
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "ShortId": {
+      "description": "Manufacturer short id ({mid}): 3-8 lowercase letters or digits, assigned at signup, immutable after activation.",
+      "type": "string",
+      "pattern": "^[a-z0-9]{3,8}$"
+    },
+    "Serial": {
+      "description": "Unit serial number. It becomes the second half of the device id, so it must be 8-32 letters or digits.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9]{8,32}$"
+    },
+    "Did": {
+      "description": "Device id: '{mid}-{serial}'. MQTT client id and certificate CN.",
+      "type": "string",
+      "pattern": "^[a-z0-9]{3,8}-[A-Za-z0-9]{8,32}$"
+    },
+    "Mac": {
+      "description": "MAC address, lowercase, colon separated.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{2}(:[0-9a-f]{2}){5}$"
+    },
+    "Semver": {
+      "description": "Semantic version MAJOR.MINOR.PATCH with an optional pre-release suffix.",
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$"
+    },
+    "Sha256Hex": {
+      "description": "SHA-256 digest, lowercase hex.",
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "Base64": {
+      "description": "Standard base64 (RFC 4648 section 4) with padding.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+    },
+    "Timestamp": {
+      "description": "RFC 3339 date-time in UTC.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "UnixMs": {
+      "description": "Unix time in milliseconds (UTC).",
+      "type": "integer",
+      "minimum": 1
+    },
+    "ChannelName": {
+      "description": "Channel id within one device, e.g. 'switch_1', 'power'. 'device' is reserved for device-level events.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+    },
+    "CodeName": {
+      "description": "Machine-readable code: lowercase snake_case. Manufacturer-specific codes start with 'x_'.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+    },
+    "ProtocolVersion": {
+      "description": "Device protocol major version.",
+      "const": 1
+    },
+    "Envelope": {
+      "description": "Fields every device-to-cloud MQTT message carries.",
+      "type": "object",
+      "required": [
+        "v",
+        "ts",
+        "seq"
+      ],
+      "properties": {
+        "v": {
+          "$ref": "#/$defs/ProtocolVersion"
+        },
+        "ts": {
+          "$ref": "#/$defs/UnixMs",
+          "description": "When the device produced the message (Unix ms, from SNTP)."
+        },
+        "seq": {
+          "description": "Monotonic counter per boot, starting at 0. The cloud drops a repeated (boot, seq) pair.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "boot": {
+          "description": "Random id generated at each boot (8-32 letters/digits). Lets the cloud tell a reboot from a replay.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9]{8,32}$"
+        }
+      }
+    },
+    "Problem": {
+      "description": "RFC 9457 error body returned by every HTTP API.",
+      "type": "object",
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "format": "uri"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 400,
+          "maximum": 599
+        },
+        "code": {
+          "description": "Stable error code (snake_case); clients act on it, never on the English title. Codes used by the device and manufacturer APIs: validation_failed, unauthenticated, forbidden, not_found, conflict, rate_limited, limit_reached, claim_token_invalid, device_already_owned, hw_type_not_approved, api_key_suspended, signature_invalid, firmware_signature_invalid, internal_error. New codes may be added; treat an unknown code like its HTTP status.",
+          "$ref": "#/$defs/CodeName"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "request_id": {
+          "type": "string"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "code",
+              "message"
+            ],
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

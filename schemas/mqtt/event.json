@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/mqtt/event.json",
+  "title": "EventMsg",
+  "description": "Topic dev/{mid}/{did}/event, device to cloud, QoS 1. A discrete event on one channel (button press, door opened, leak). Use channel 'device' for device-level events (reset, tamper).",
+  "type": "object",
+  "allOf": [{ "$ref": "../common.json#/$defs/Envelope" }],
+  "required": ["channel", "type"],
+  "properties": {
+    "channel": { "$ref": "../common.json#/$defs/ChannelName" },
+    "type": { "$ref": "../common.json#/$defs/CodeName", "description": "Standard event type for the channel capability (see docs/06-events.md) or an x_ custom type." },
+    "data": { "type": "object", "maxProperties": 32 }
+  },
+  "unevaluatedProperties": false
+}

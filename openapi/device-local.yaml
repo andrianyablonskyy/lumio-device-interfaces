@@ -1,0 +1,66 @@
+openapi: 3.1.0
+info:
+  title: Lumio device local API (Wi-Fi setup mode)
+  version: 0.1.0
+  summary: HTTP API a device serves on its own hotspot while it waits to be paired.
+  description: |
+    Devices without Bluetooth (or as a fallback) open a hotspot named `Lumio-XXXX` (last 4 characters of the did)
+    and serve this API on `http://192.168.4.1` port 80. The app joins the hotspot, reads `/info`, checks the public
+    key against the cloud, posts the encrypted provisioning blob and polls `/status` until the device leaves the
+    hotspot to join the home network. Plain HTTP is acceptable because the payload is end-to-end encrypted to the
+    device key (docs/04-pairing.md). The device must close the hotspot after a successful claim, after 15 minutes
+    without a request, and after 5 provisioning attempts that fail to decrypt.
+servers:
+  - url: http://192.168.4.1
+paths:
+  /info:
+    get:
+      operationId: getDeviceInfo
+      summary: Device identity and provisioning public key
+      responses:
+        '200':
+          description: Device info
+          content:
+            application/json:
+              schema: { $ref: '../schemas/provisioning/device-info.json' }
+              examples:
+                plug: { value: { v: 1, did: acme-P2A1B2C3D4, model_code: P2, fw: 1.4.2, pubkey: BCt/xcVi9mEY/OKTUE96LstdCgi/0hdY1iovgSwWNZC4fQe1ANMYMhluBo9xOnzayrluuXrR/0VHgV8oIcxXGCQ=, claimed: false, wifi_bands: [2.4ghz] } }
+  /provision:
+    post:
+      operationId: provision
+      summary: Hand over Wi-Fi credentials and the claim token
+      description: Body is the binary provisioning blob (version | app ephemeral public key | nonce | ciphertext | tag). The device answers before it leaves the hotspot.
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, contentMediaType: application/octet-stream, maxLength: 1024 }
+      responses:
+        '202':
+          description: Accepted; the device starts connecting (poll /status)
+          content:
+            application/json:
+              schema: { $ref: '../schemas/provisioning/provision-status.json' }
+              examples:
+                received: { value: { v: 1, state: received } }
+        '400':
+          description: Blob could not be decrypted or the payload is invalid
+          content:
+            application/json:
+              schema: { $ref: '../schemas/provisioning/provision-status.json' }
+              examples:
+                decrypt: { value: { v: 1, state: failed, error: decrypt_failed } }
+        '429': { description: Too many failed attempts; the hotspot closes }
+  /status:
+    get:
+      operationId: getProvisionStatus
+      summary: Pairing progress
+      responses:
+        '200':
+          description: Current state
+          content:
+            application/json:
+              schema: { $ref: '../schemas/provisioning/provision-status.json' }
+              examples:
+                connecting: { value: { v: 1, state: wifi_connecting } }
+                wrongPassword: { value: { v: 1, state: failed, error: wifi_auth_failed } }

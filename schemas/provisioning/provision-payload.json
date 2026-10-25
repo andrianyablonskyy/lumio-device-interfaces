@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/provisioning/provision-payload.json",
+  "title": "ProvisionPayload",
+  "description": "Plaintext the app encrypts to the device public key (docs/04-pairing.md, 'Provisioning blob'). Never stored or logged by the device outside its secure credential store.",
+  "type": "object",
+  "required": ["v", "ssid", "claim_token", "mqtt_host"],
+  "additionalProperties": false,
+  "properties": {
+    "v": { "$ref": "../common.json#/$defs/ProtocolVersion" },
+    "ssid": { "type": "string", "minLength": 1, "maxLength": 32 },
+    "password": { "type": "string", "maxLength": 64, "description": "WPA2/WPA3 passphrase; omitted for open networks." },
+    "claim_token": { "type": "string", "minLength": 16, "maxLength": 128, "pattern": "^[A-Za-z0-9_-]+$" },
+    "mqtt_host": { "type": "string", "pattern": "^[a-z0-9.-]+\\.[a-z]{2,}$", "description": "Regional broker, e.g. mqtt.eu.lumio.io (port 8883)." },
+    "tz": { "type": "string", "maxLength": 64, "description": "IANA time zone of the home, for devices with local schedules." }
+  }
+}

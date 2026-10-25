@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumio.io/schemas/device/v1/provisioning/device-info.json",
+  "title": "DeviceInfo",
+  "description": "What an unclaimed device tells the app before pairing: BLE 'info' characteristic (read) or GET http://192.168.4.1/info in Wi-Fi setup mode. UTF-8 JSON, at most 512 bytes.",
+  "type": "object",
+  "required": ["v", "did", "model_code", "fw", "pubkey", "claimed"],
+  "additionalProperties": false,
+  "properties": {
+    "v": { "$ref": "../common.json#/$defs/ProtocolVersion" },
+    "did": { "$ref": "../common.json#/$defs/Did" },
+    "model_code": { "type": "string", "minLength": 1, "maxLength": 32 },
+    "fw": { "$ref": "../common.json#/$defs/Semver" },
+    "pubkey": {
+      "$ref": "../common.json#/$defs/Base64",
+      "description": "Device provisioning public key: uncompressed P-256 point (65 bytes, 0x04 || X || Y). The app checks it against the key the cloud returns for this did."
+    },
+    "claimed": { "type": "boolean", "description": "true when the device still holds an owner binding (a factory reset clears it)." },
+    "wifi_bands": { "type": "array", "items": { "enum": ["2.4ghz", "5ghz"] }, "uniqueItems": true, "minItems": 1 }
+  }
+}

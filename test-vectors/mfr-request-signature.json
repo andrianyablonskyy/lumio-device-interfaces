@@ -1,0 +1,12 @@
+{
+  "description": "HMAC-SHA256 signature of a manufacturer API machine call (docs/09-manufacturer-api.md).",
+  "note": "Test keys derived from public strings. Never use them in products.",
+  "key_id": "lk_live_abcdefghijklmnop",
+  "secret": "test-secret-dGhpcyBpcyBub3QgYSByZWFsIHNlY3JldA",
+  "method": "POST",
+  "path_with_query": "/v1/mfr/provisioning/devices",
+  "timestamp": 1761210000,
+  "body": "{\"hw_type_id\":\"01928f3e-5a7b-7c00-8d00-0000000000a1\",\"serial\":\"P2A1B2C3D4\",\"mac\":\"24:0a:c4:12:34:56\",\"csr_pem\":\"-----BEGIN CERTIFICATE REQUEST-----\\n...\\n-----END CERTIFICATE REQUEST-----\\n\"}",
+  "string_to_sign": "POST\n/v1/mfr/provisioning/devices\n1761210000\n9c53286c41464816ce0a2c7ceb36d1f289f8db641d28c6300861ba5fcda0e19a",
+  "signature_hex": "8fe7add259a1c19bc55c41cf33d15272cee809ed247ae71f9af055c75df85c6f"
+}

@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "ts": 1761210060000,
+  "seq": 7,
+  "boot": "Qm3T8sLw",
+  "values": {
+    "temperature": 21.4,
+    "humidity": 48,
+    "battery": 87
+  }
+}

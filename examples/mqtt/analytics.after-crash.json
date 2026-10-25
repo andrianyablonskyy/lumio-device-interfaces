@@ -1,0 +1,18 @@
+{
+  "v": 1,
+  "ts": 1761210000500,
+  "seq": 0,
+  "boot": "Hn4V0cRe",
+  "period_s": 300,
+  "uptime_s": 4,
+  "reset_reason": "panic",
+  "crash": {
+    "code": "load_prohibited",
+    "pc": "0x400d1f2c",
+    "task": "mqtt",
+    "fw": "1.4.2"
+  },
+  "metrics": {
+    "heap_free_b": 120400
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "description": "Lumio-Webhook-Signature header of a delivery, during a secret rotation (two v1 values) (docs/08-webhooks.md).",
+  "note": "Test keys derived from public strings. Never use them in products.",
+  "secrets": [
+    "whsec_dGVzdCB3ZWJob29rIHNlY3JldCBudW1iZXIgb25l",
+    "whsec_dGVzdCB3ZWJob29rIHNlY3JldCBudW1iZXIgdHdv"
+  ],
+  "timestamp": 1761210000,
+  "body": "{\"id\":\"01929a00-0000-7000-8000-000000000001\",\"type\":\"webhook.test\",\"at\":\"2026-10-23T09:00:00Z\",\"manufacturer_id\":\"01928f00-0000-7000-8000-00000000acde\",\"data\":{}}",
+  "header": "t=1761210000,v1=2097609b5d092b462b43efa1bd3e5f7a46852d022d680a692cb0a6778a52c1ef,v1=ffa60cb9eced0b7752fc9889c9c49d1a27c33f099b45b8f805f809e30d2694d2"
+}
